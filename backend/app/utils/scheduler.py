@@ -40,7 +40,7 @@ def generate_slots_for_machine(
                     start_time=slot_start,
                     end_time=slot_end,
                     is_available=True,
-                    base_price=machine.base_price_per_hour # Usar precio base de la máquina por defecto
+                    base_price=machine.price_base_per_hour # Usar precio base de la máquina por defecto
                 )
                 db.add(new_slot)
                 slots_created += 1
