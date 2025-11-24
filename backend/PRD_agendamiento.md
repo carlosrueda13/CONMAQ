@@ -213,12 +213,33 @@ Indices importantes: index on `machine_id,date,hour_start` (availability/offers)
 
 ---
 
-**Seguridad y privacidad**
+**Seguridad, Privacidad y Ciberseguridad**
 
-- Almacenar contraseñas con bcrypt/argon2.
-- Guardar tokens de terceros de forma cifrada en la DB.
-- Logs de auditoría para acciones sensibles (cancelaciones, cambios de precio, transferencias de bookings).
-- Cumplimiento con normativa local de protección de datos (p. ej. GDPR si aplica). Añadir consentimiento de uso de datos.
+- **Protección de Datos de Pagos (PCI-DSS):**
+  - **Tokenización:** Prohibido almacenar números de tarjeta (PAN) o CVV. Usar SDKs (Stripe Elements) para tokenizar datos en el cliente.
+  - **Verificación de Webhooks:** Validar firmas criptográficas (HMAC-SHA256) en webhooks de pago para prevenir falsificación de confirmaciones.
+  
+- **Seguridad de la API y Aplicación:**
+  - **Rate Limiting & Throttling:** Límites por IP/Usuario (Redis) para mitigar DDoS y fuerza bruta (especialmente en `/auth/*`).
+  - **Input Validation:** Validación estricta de esquemas (Pydantic/Zod) para prevenir SQL Injection y XSS.
+  - **Security Headers:** Implementar HSTS, CSP, X-Content-Type-Options y X-Frame-Options.
+  - **CORS:** Política restrictiva permitiendo solo orígenes de confianza.
+
+- **Autenticación y Control de Acceso:**
+  - **MFA (Multi-Factor Authentication):** Obligatorio para Administradores y Operadores.
+  - **Gestión de Sesiones:** Access Tokens de corta duración (15m) y Refresh Tokens rotativos (HttpOnly Cookies).
+  - **RBAC Estricto:** Middleware de autorización granular en cada endpoint.
+
+- **Infraestructura y Datos:**
+  - **Cifrado:** Encryption-at-rest (AES-256) para DB y backups. Encryption-in-transit (TLS 1.3) obligatorio.
+  - **Gestión de Secretos:** Uso de Vault/Secrets Manager. Prohibido credenciales en código.
+  - **Auditoría y Monitoreo:** Logs inmutables para acciones críticas. Alertas ante anomalías (ej. picos de tráfico, fallos de login masivos).
+  - **Escaneo de Vulnerabilidades:** SAST/DAST en pipeline CI/CD y escaneo de dependencias (Snyk/Dependabot).
+  - **Protección contra Bots:** Implementar CAPTCHA o desafíos en registro y ofertas públicas.
+
+- **Privacidad (GDPR/CCPA):**
+  - Consentimiento explícito para cookies y marketing.
+  - Mecanismo de "Derecho al Olvido" (anonimización de datos de usuario).
 
 ---
 
@@ -244,14 +265,17 @@ Indices importantes: index on `machine_id,date,hour_start` (availability/offers)
 
 **Diseño técnico y stack recomendado**
 
-- Lenguaje/Framework: Python + FastAPI (rápido para APIs), o Node.js + NestJS si el equipo prefiere TypeScript.
-- DB: PostgreSQL (relacional para transacciones y consultas analíticas simples) + PostGIS si se necesita geospatial avanzado.
-- Cache/Queue: Redis para caching y cola (RQ/Celery/BullMQ según stack).
-- Workers: Celery (Python) o BullMQ (Node) para procesar subastas, notificaciones y tareas programadas.
-- Migrations: Alembic (Python) o TypeORM migrations.
-- Tests: pytest or jest, cobertura mínima de 70% para lógica crítica (booking, ofertas, pagos).
-- Contenerización: Docker + docker-compose para dev; Kubernetes para producción.
-- CI/CD: GitHub Actions con lint, tests, build, deploy.
+- **Backend:** Python + FastAPI.
+  - *Justificación:* Alto rendimiento (async nativo para subastas), desarrollo rápido, excelente documentación automática (OpenAPI) para generar clientes en Dart, y facilidad de mantenimiento.
+- **Frontend (Cliente/Admin):** Flutter (Dart).
+  - *Justificación:* Desarrollo multiplataforma unificado (iOS, Android, Web) desde un solo código base.
+- **DB:** PostgreSQL (relacional para transacciones y consultas analíticas simples) + PostGIS si se necesita geospatial avanzado.
+- **Cache/Queue:** Redis para caching y cola (RQ/Celery/BullMQ según stack).
+- **Workers:** Celery (Python) para procesar subastas, notificaciones y tareas programadas.
+- **Migraciones:** Alembic (Python).
+- **Tests:** pytest, cobertura mínima de 70% para lógica crítica (booking, ofertas, pagos).
+- **Contenerización:** Docker + docker-compose para dev; Kubernetes para producción.
+- **CI/CD:** GitHub Actions con lint, tests, build, deploy.
 
 ---
 
@@ -310,9 +334,9 @@ Fase 4 - Integraciones avanzadas y operaciones (2-3 semanas)
 
 **Siguientes pasos propuestos**
 
-1. Revisar este PRD y aprobar o solicitar cambios.
-2. Elegir stack definitivo (FastAPI vs NestJS) y proveedor de pagos.
-3. Crear backlog de historias y tasks para Fase 1.
+1.  Revisar este PRD y aprobar o solicitar cambios. (Completado)
+2.  Elegir stack definitivo (FastAPI + Flutter) y proveedor de pagos. (Completado)
+3.  Crear estructura del proyecto backend e iniciar desarrollo de Fase 1.
 
 ---
 
