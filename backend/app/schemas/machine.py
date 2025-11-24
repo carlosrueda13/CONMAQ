@@ -5,6 +5,7 @@ from datetime import datetime
 # Shared properties
 class MachineBase(BaseModel):
     name: Optional[str] = None
+    serial_number: Optional[str] = None
     description: Optional[str] = None
     specs: Optional[Dict[str, Any]] = None
     capacity_m3h: Optional[float] = None
@@ -21,6 +22,7 @@ class MachineBase(BaseModel):
 # Properties to receive on creation
 class MachineCreate(MachineBase):
     name: str
+    serial_number: str
     price_base_per_hour: float
 
 # Properties to receive on update
@@ -36,8 +38,7 @@ class MachineInDBBase(MachineBase):
     maintenance_cost_total: float
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 # Properties to return to client
 class Machine(MachineInDBBase):

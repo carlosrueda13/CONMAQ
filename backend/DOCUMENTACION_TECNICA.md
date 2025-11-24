@@ -16,6 +16,7 @@
 7. [Capa de API y Controladores](#7-capa-de-api-y-controladores)
 8. [Seguridad e Inyección de Dependencias](#8-seguridad-e-inyección-de-dependencias)
 9. [Utilidades de Negocio](#9-utilidades-de-negocio)
+10. [Testing y Despliegue](#10-testing-y-despliegue)
 
 ---
 
@@ -57,6 +58,7 @@ Esta clase singleton almacena toda la configuración de la aplicación.
 | `POSTGRES_USER` | `str` | Usuario para autenticación en PostgreSQL. | "postgres" |
 | `POSTGRES_PASSWORD` | `str` | Contraseña del usuario de PostgreSQL. | "postgres" |
 | `POSTGRES_DB` | `str` | Nombre de la base de datos lógica. | "agendamiento" |
+| `POSTGRES_PORT` | `str` | Puerto del servidor de base de datos. | "5432" |
 | `DATABASE_URL` | `Optional[str]` | URI de conexión completa (SQLAlchemy). | *Calculado automáticamente* |
 | `SECRET_KEY` | `str` | Clave criptográfica para firmar JWTs. **CRÍTICO**. | "changethis..." (Dev) |
 | `ALGORITHM` | `str` | Algoritmo de firma para JWT. | "HS256" |
@@ -155,6 +157,7 @@ Representa la maquinaria disponible para renta.
 | :--- | :--- | :--- |
 | `id` | `Integer` | PK. |
 | `name` | `String` | Nombre comercial de la máquina. |
+| `serial_number` | `String` | Número de serie único. `unique=True`, `nullable=False`. |
 | `specs` | `JSON` | Diccionario flexible para especificaciones técnicas. |
 | `price_base_per_hour` | `Float` | Tarifa base por hora. |
 | `location_lat/lng` | `Float` | Coordenadas geográficas. |
@@ -205,7 +208,7 @@ Respuesta del endpoint de login.
 
 ### Archivo: `app/schemas/machine.py`
 DTOs para gestión de máquinas.
-- `MachineCreate`: Validación al crear. Campos obligatorios como `name`, `price_base_per_hour`.
+- `MachineCreate`: Validación al crear. Campos obligatorios como `name`, `serial_number`, `price_base_per_hour`.
 - `MachineUpdate`: Todos los campos opcionales.
 - `Machine`: Respuesta completa incluyendo `id` y `created_at`.
 
@@ -251,6 +254,11 @@ DTOs para disponibilidad.
 
 ### Archivo: `app/api/v1/endpoints/machines.py`
 
+#### Endpoint: `read_machines`
+- **Ruta:** `GET /api/v1/machines/`
+- **Filtros:** `status`, `serial_number`.
+- **Lógica:** Retorna la lista de máquinas, opcionalmente filtrada.
+
 #### Endpoint: `create_machine`
 - **Ruta:** `POST /api/v1/machines/`
 - **Permisos:** Solo Superusuario.
@@ -258,7 +266,8 @@ DTOs para disponibilidad.
 
 #### Endpoint: `generate_machine_availability`
 - **Ruta:** `POST /api/v1/machines/{id}/availability/generate`
-- **Lógica:** Invoca al `scheduler` para crear slots de disponibilidad (por defecto 30 días, 8am-6pm).
+- **Parámetros:** `days` (default 30), `start_hour` (default 8), `end_hour` (default 18).
+- **Lógica:** Invoca al `scheduler` para crear slots de disponibilidad.
 
 #### Endpoint: `read_machine_availability`
 - **Ruta:** `GET /api/v1/machines/{id}/availability`
@@ -309,13 +318,53 @@ Validación de estado.
 
 #### Función: `generate_slots_for_machine`
 Generador automático de disponibilidad.
-- **Parámetros:** `db`, `machine_id`, `start_date`, `days`.
+- **Parámetros:** `db`, `machine_id`, `start_date`, `days`, `start_hour`, `end_hour`.
 - **Lógica:**
     1. Itera por el número de días solicitados.
-    2. Para cada día, itera por las horas laborales (8:00 - 18:00).
+    2. Para cada día, itera por las horas laborales definidas (`start_hour` a `end_hour`).
     3. Verifica si ya existe un slot en ese horario.
     4. Si no existe, crea un nuevo `AvailabilitySlot` con el precio base de la máquina.
     5. Hace commit de la transacción.
+
+---
+
+## 10. Testing y Despliegue
+
+### Migraciones de Base de Datos (Alembic)
+El proyecto utiliza Alembic para gestionar los cambios en el esquema de la base de datos.
+
+**Comandos Principales:**
+- **Generar nueva migración:**
+  ```bash
+  # Si se ejecuta desde el host local (fuera de Docker):
+  POSTGRES_SERVER=localhost POSTGRES_PORT=5433 alembic revision --autogenerate -m "Descripción"
+  ```
+- **Aplicar migraciones (Actualizar DB):**
+  ```bash
+  POSTGRES_SERVER=localhost POSTGRES_PORT=5433 alembic upgrade head
+  ```
+
+### Inicialización de Datos (Seed)
+Para facilitar el desarrollo y pruebas, se incluye un script que crea un **Superusuario** por defecto.
+
+- **Archivo:** `app/initial_data.py`
+- **Ejecución:**
+  ```bash
+  POSTGRES_SERVER=localhost POSTGRES_PORT=5433 python -m app.initial_data
+  ```
+- **Credenciales por defecto:**
+  - Email: `admin@conmaq.com`
+  - Password: `admin`
+
+### Pruebas Automatizadas (Pytest)
+Se ha configurado `pytest` para pruebas de integración.
+
+- **Estructura:** Carpeta `app/tests/`.
+- **Ejecución:**
+  ```bash
+  pytest
+  ```
+- **Nota:** Las pruebas requieren que la base de datos esté corriendo y accesible.
 
 ---
 *Fin del Manual Técnico de Referencia*

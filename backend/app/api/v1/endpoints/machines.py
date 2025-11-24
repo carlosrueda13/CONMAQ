@@ -19,6 +19,7 @@ def read_machines(
     skip: int = 0,
     limit: int = 100,
     status: Optional[str] = None,
+    serial_number: Optional[str] = None,
 ) -> Any:
     """
     Retrieve machines.
@@ -26,6 +27,8 @@ def read_machines(
     query = db.query(Machine)
     if status:
         query = query.filter(Machine.status == status)
+    if serial_number:
+        query = query.filter(Machine.serial_number == serial_number)
     machines = query.offset(skip).limit(limit).all()
     return machines
 
@@ -41,6 +44,7 @@ def create_machine(
     """
     db_obj = Machine(
         name=machine_in.name,
+        serial_number=machine_in.serial_number,
         description=machine_in.description,
         specs=machine_in.specs,
         capacity_m3h=machine_in.capacity_m3h,
@@ -120,6 +124,8 @@ def generate_machine_availability(
     db: Session = Depends(deps.get_db),
     id: int,
     days: int = 30,
+    start_hour: int = 8,
+    end_hour: int = 18,
     current_user: User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """
@@ -129,7 +135,7 @@ def generate_machine_availability(
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
     
-    slots_count = generate_slots_for_machine(db, id, datetime.now(), days=days)
+    slots_count = generate_slots_for_machine(db, id, datetime.now(), days=days, start_hour=start_hour, end_hour=end_hour)
     return {"message": f"Generated {slots_count} slots for machine {id}"}
 
 @router.get("/{id}/availability", response_model=List[AvailabilitySlotSchema])
