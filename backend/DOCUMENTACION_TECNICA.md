@@ -1,8 +1,8 @@
 # Manual Técnico de Referencia - Sistema CONMAQ
 
-**Versión del Documento:** 1.1
-**Fecha de Última Actualización:** 24 de Noviembre de 2025
-**Estado:** Fase 1 (Autenticación e Infraestructura Base)
+**Versión del Documento:** 1.2
+**Fecha de Última Actualización:** 25 de Noviembre de 2025
+**Estado:** Fase 2 (Motor de Subastas y Notificaciones)
 
 ---
 
@@ -174,6 +174,50 @@ Representa una franja horaria específica de disponibilidad.
 | `start_time` | `DateTime` | Inicio del slot. |
 | `end_time` | `DateTime` | Fin del slot. |
 | `is_available` | `Boolean` | Si está libre para ser reservado. |
+| `current_price` | `Float` | Precio actual de la subasta (highest bid). |
+| `winner_id` | `Integer` | FK a `user.id`. Usuario que va ganando. |
+| `auction_end_time` | `DateTime` | Hora de cierre de la subasta (dinámica). |
+
+#### Clase `Offer` (Hereda de `Base`)
+Representa una oferta realizada por un usuario en un slot.
+
+**Columnas:**
+| Nombre | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `id` | `Integer` | PK. |
+| `user_id` | `Integer` | FK a `user.id`. |
+| `slot_id` | `Integer` | FK a `availabilityslot.id`. |
+| `amount` | `Float` | Monto visible de la oferta. |
+| `max_bid` | `Float` | Monto máximo secreto (Proxy Bidding). |
+| `status` | `String` | Estado (`active`, `winning`, `outbid`). |
+
+#### Clase `Watchlist` (Hereda de `Base`)
+Representa el interés de un usuario en una máquina específica.
+
+**Columnas:**
+| Nombre | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `id` | `Integer` | PK. |
+| `user_id` | `Integer` | FK a `user.id`. |
+| `machine_id` | `Integer` | FK a `machine.id`. |
+| `created_at` | `DateTime` | Fecha de adición. |
+
+**Restricciones:**
+- `UniqueConstraint('user_id', 'machine_id')`: Evita duplicados.
+
+#### Clase `Notification` (Hereda de `Base`)
+Almacena alertas y mensajes para el usuario.
+
+**Columnas:**
+| Nombre | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `id` | `Integer` | PK. |
+| `user_id` | `Integer` | FK a `user.id`. |
+| `type` | `String` | Tipo de evento (`outbid`, `won`, `availability`). |
+| `title` | `String` | Título corto. |
+| `message` | `String` | Cuerpo del mensaje. |
+| `payload` | `JSON` | Datos extra para navegación (ej. `slot_id`). |
+| `is_read` | `Boolean` | Estado de lectura. |
 
 ---
 
@@ -215,6 +259,22 @@ DTOs para gestión de máquinas.
 ### Archivo: `app/schemas/availability.py`
 DTOs para disponibilidad.
 - `AvailabilitySlot`: Representación de un slot con `start_time`, `end_time`, `is_available`.
+
+### Archivo: `app/schemas/offer.py`
+DTOs para gestión de ofertas.
+- `OfferCreate`: Input para crear oferta.
+    - `amount`: `float` (Requerido). El monto de la oferta visible.
+    - `max_bid`: `Optional[float]`. El monto máximo para Proxy Bidding. Si se omite, se asume igual a `amount` (Oferta Manual).
+- `Offer`: Output con detalles completos (`status`, `created_at`).
+
+### Archivo: `app/schemas/watchlist.py`
+DTOs para lista de seguimiento.
+- `WatchlistCreate`: Input vacío (el ID viene en la URL o payload simple).
+- `Watchlist`: Output con `machine_id` y `created_at`.
+
+### Archivo: `app/schemas/notification.py`
+DTOs para notificaciones.
+- `Notification`: Output completo incluyendo `payload` y `is_read`.
 
 ---
 
@@ -274,6 +334,44 @@ DTOs para disponibilidad.
 - **Filtros:** `start_date`, `end_date`.
 - **Lógica:** Retorna la lista de slots para una máquina.
 
+### Archivo: `app/api/v1/endpoints/offers.py`
+
+#### Endpoint: `create_offer`
+- **Ruta:** `POST /api/v1/offers/`
+- **Input:** `OfferCreate` (`slot_id`, `amount`, `max_bid` opcional).
+- **Lógica:** Invoca `bidding.place_bid`. Soporta dos modos:
+    1. **Proxy Bidding:** Si se envía `max_bid`, el sistema oferta automáticamente hasta ese límite.
+    2. **Manual Bidding:** Si no se envía `max_bid`, la oferta es fija por el valor de `amount`.
+
+#### Endpoint: `read_my_offers`
+- **Ruta:** `GET /api/v1/offers/my-offers`
+- **Lógica:** Retorna el historial de ofertas del usuario autenticado.
+
+### Archivo: `app/api/v1/endpoints/watchlist.py`
+
+#### Endpoint: `toggle_watchlist`
+- **Ruta:** `POST /api/v1/watchlist/toggle`
+- **Input:** `WatchlistCreate` (`machine_id`).
+- **Lógica:**
+    1. Busca si ya existe la relación `user_id` - `machine_id`.
+    2. Si existe: Elimina el registro (Remove).
+    3. Si no existe: Crea el registro (Add).
+    4. Retorna estado (`added` o `removed`).
+
+#### Endpoint: `read_watchlist`
+- **Ruta:** `GET /api/v1/watchlist/`
+- **Lógica:** Retorna todas las máquinas seguidas por el usuario.
+
+### Archivo: `app/api/v1/endpoints/notifications.py`
+
+#### Endpoint: `read_notifications`
+- **Ruta:** `GET /api/v1/notifications/`
+- **Lógica:** Retorna notificaciones del usuario, ordenadas por fecha descendente.
+
+#### Endpoint: `mark_notification_as_read`
+- **Ruta:** `PUT /api/v1/notifications/{id}/read`
+- **Lógica:** Actualiza el campo `is_read = True` para la notificación especificada.
+
 ---
 
 ## 8. Seguridad e Inyección de Dependencias
@@ -326,6 +424,30 @@ Generador automático de disponibilidad.
     4. Si no existe, crea un nuevo `AvailabilitySlot` con el precio base de la máquina.
     5. Hace commit de la transacción.
 
+### Archivo: `app/services/bidding.py`
+
+#### Función: `place_bid`
+Motor central de subastas.
+- **Parámetros:** `db`, `slot_id`, `user_id`, `amount`, `max_bid_amount` (opcional).
+- **Reglas de Negocio:**
+    1. **Validación:** Verifica disponibilidad del slot y que la oferta supere el mínimo requerido.
+    2. **Normalización:** Si `max_bid_amount` es `None`, se establece igual a `amount` (Modo Manual).
+    3. **Proxy Bidding vs Manual:**
+        - Compara la nueva oferta con el `max_bid` del ganador actual.
+        - Si `nuevo_max > actual_max`: El nuevo usuario gana. El precio se ajusta a `actual_max + incremento` (o al monto de la oferta manual si es mayor).
+        - Si `nuevo_max <= actual_max`: El ganador actual se mantiene. El precio sube a `nuevo_max + incremento` para "defender" la posición del ganador actual.
+    4. **Soft Close:** Si la oferta ocurre cerca del cierre (`SOFT_CLOSE_MINUTES`), extiende la subasta (`SOFT_CLOSE_EXTENSION`).
+    5. **Notificaciones:** Si hay un cambio de ganador (Outbid), invoca a `notifications.send_notification` para alertar al perdedor.
+
+### Archivo: `app/services/notifications.py`
+
+#### Función: `send_notification`
+Servicio central de mensajería.
+- **Parámetros:** `db`, `user_id`, `type`, `title`, `message`, `payload`.
+- **Lógica:**
+    1. Crea un registro persistente en la tabla `Notification`.
+    2. (Simulación) Imprime en consola el contenido del mensaje, representando el envío de un Email o Push Notification.
+
 ---
 
 ## 10. Testing y Despliegue
@@ -364,6 +486,9 @@ Se ha configurado `pytest` para pruebas de integración.
   ```bash
   pytest
   ```
+- **Escenarios Clave:**
+  - `test_bidding_flow`: Verifica la lógica de Proxy Bidding.
+  - `test_manual_bidding`: Verifica la lógica de ofertas manuales sin auto-incremento.
 - **Nota:** Las pruebas requieren que la base de datos esté corriendo y accesible.
 
 ---

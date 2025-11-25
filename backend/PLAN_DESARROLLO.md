@@ -11,7 +11,7 @@
 | Día | Foco Principal | Entregables Clave |
 | :--- | :--- | :--- |
 | **Día 1** | **Cimientos y Activos** | Configuración, Auth, CRUD Máquinas, Calendario Base. |
-| **Día 2** | **Motor de Subastas** | Lógica de Ofertas, Soft Close, Proxy Bidding, Notificaciones. |
+| **Día 2** | **Motor de Subastas** | Lógica de Ofertas, Soft Close, Proxy Bidding, Notificaciones. (COMPLETADO) |
 | **Día 3** | **Operaciones y Reservas** | Conversión Oferta->Booking, Fotos, Combustible, Métricas. |
 | **Día 4** | **Seguridad y Calidad** | Hardening, Rate Limiting, Tests, Documentación Final. |
 

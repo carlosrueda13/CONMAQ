@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, Column, Integer, String, DateTime
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base_class import Base
 
@@ -10,5 +11,9 @@ class User(Base):
     phone = Column(String)
     role = Column(String, default="client") # client, admin, operator
     is_active = Column(Boolean(), default=True)
-    is_superuser = Column(Boolean(), default=False)
+    is_superuser = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    offers = relationship("Offer", back_populates="user")
+    watchlist_items = relationship("Watchlist", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")

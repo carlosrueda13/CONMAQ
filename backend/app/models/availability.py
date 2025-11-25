@@ -13,3 +13,9 @@ class AvailabilitySlot(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     machine = relationship("Machine", back_populates="availability_slots")
+    offers = relationship("Offer", back_populates="slot", cascade="all, delete-orphan")
+    
+    # Campos para gestión de subasta
+    current_price = Column(Float, nullable=True) # Precio actual de la subasta (highest bid)
+    auction_end_time = Column(DateTime(timezone=True), nullable=True) # Tiempo de cierre (puede extenderse por Soft Close)
+    winner_id = Column(Integer, ForeignKey("user.id"), nullable=True) # Ganador actual/final

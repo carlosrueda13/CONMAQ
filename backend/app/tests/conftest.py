@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.core.config import settings
+from app.db.session import SessionLocal
 
 @pytest.fixture(scope="module")
 def client() -> Generator:
@@ -20,3 +21,9 @@ def superuser_token_headers(client: TestClient) -> Dict[str, str]:
     a_token = tokens["access_token"]
     headers = {"Authorization": f"Bearer {a_token}"}
     return headers
+
+@pytest.fixture(scope="function")
+def db() -> Generator:
+    session = SessionLocal()
+    yield session
+    session.close()
