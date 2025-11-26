@@ -1,8 +1,8 @@
 # Manual Técnico de Referencia - Sistema CONMAQ
 
-**Versión del Documento:** 1.2
-**Fecha de Última Actualización:** 25 de Noviembre de 2025
-**Estado:** Fase 2 (Motor de Subastas y Notificaciones)
+**Versión del Documento:** 1.3
+**Fecha de Última Actualización:** 26 de Noviembre de 2025
+**Estado:** Fase 3 (Operaciones y Reservas)
 
 ---
 
@@ -58,7 +58,7 @@ Esta clase singleton almacena toda la configuración de la aplicación.
 | `POSTGRES_USER` | `str` | Usuario para autenticación en PostgreSQL. | "postgres" |
 | `POSTGRES_PASSWORD` | `str` | Contraseña del usuario de PostgreSQL. | "postgres" |
 | `POSTGRES_DB` | `str` | Nombre de la base de datos lógica. | "agendamiento" |
-| `POSTGRES_PORT` | `str` | Puerto del servidor de base de datos. | "5432" |
+| `POSTGRES_PORT` | `str` | Puerto del servidor de base de datos. | "5433" |
 | `DATABASE_URL` | `Optional[str]` | URI de conexión completa (SQLAlchemy). | *Calculado automáticamente* |
 | `SECRET_KEY` | `str` | Clave criptográfica para firmar JWTs. **CRÍTICO**. | "changethis..." (Dev) |
 | `ALGORITHM` | `str` | Algoritmo de firma para JWT. | "HS256" |
@@ -219,6 +219,25 @@ Almacena alertas y mensajes para el usuario.
 | `payload` | `JSON` | Datos extra para navegación (ej. `slot_id`). |
 | `is_read` | `Boolean` | Estado de lectura. |
 
+#### Clase `Booking` (Hereda de `Base`)
+Representa la reserva confirmada de una máquina.
+
+**Columnas:**
+| Nombre | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `id` | `Integer` | PK. |
+| `user_id` | `Integer` | FK a `user.id`. |
+| `machine_id` | `Integer` | FK a `machine.id`. |
+| `start_time` | `DateTime` | Inicio de la reserva. |
+| `end_time` | `DateTime` | Fin esperado de la reserva. |
+| `actual_end_time` | `DateTime` | Fin real (Call-off). |
+| `status` | `String` | `pending_payment`, `confirmed`, `active`, `completed`, `cancelled`. |
+| `total_price` | `Float` | Precio final acordado. |
+| `start_photos` | `JSON` | URLs de fotos al inicio (Check-in). |
+| `end_photos` | `JSON` | URLs de fotos al final (Check-out). |
+| `start_fuel_level` | `Float` | Nivel de combustible al inicio. |
+| `end_fuel_level` | `Float` | Nivel de combustible al final. |
+
 ---
 
 ## 6. Capa de Esquemas (DTOs)
@@ -275,6 +294,13 @@ DTOs para lista de seguimiento.
 ### Archivo: `app/schemas/notification.py`
 DTOs para notificaciones.
 - `Notification`: Output completo incluyendo `payload` y `is_read`.
+
+### Archivo: `app/schemas/booking.py`
+DTOs para gestión de reservas.
+- `BookingCreate`: Input para crear reserva (Admin/Internal).
+- `BookingCheckIn`: Input para operación de Check-in (`start_fuel_level`, `start_photos`).
+- `BookingCheckOut`: Input para operación de Check-out (`end_fuel_level`, `end_photos`).
+- `Booking`: Output completo con estado y evidencia.
 
 ---
 
@@ -371,6 +397,26 @@ DTOs para notificaciones.
 #### Endpoint: `mark_notification_as_read`
 - **Ruta:** `PUT /api/v1/notifications/{id}/read`
 - **Lógica:** Actualiza el campo `is_read = True` para la notificación especificada.
+
+### Archivo: `app/api/v1/endpoints/bookings.py`
+
+#### Endpoint: `create_booking_from_offer`
+- **Ruta:** `POST /api/v1/bookings/from-offer/{offer_id}`
+- **Lógica:** Convierte una oferta ganadora en una reserva confirmada. Copia precios y fechas del slot/oferta.
+
+#### Endpoint: `check_in`
+- **Ruta:** `POST /api/v1/bookings/{id}/check-in`
+- **Input:** `BookingCheckIn` (Fotos, Combustible).
+- **Lógica:** Cambia estado a `active`, registra evidencia inicial.
+
+#### Endpoint: `check_out`
+- **Ruta:** `POST /api/v1/bookings/{id}/check-out`
+- **Input:** `BookingCheckOut` (Fotos, Combustible).
+- **Lógica:** Cambia estado a `completed`, registra evidencia final.
+
+#### Endpoint: `call_off`
+- **Ruta:** `POST /api/v1/bookings/{id}/call-off`
+- **Lógica:** Marca el fin de uso (`actual_end_time`). Detiene el cobro de tiempo (lógica base).
 
 ---
 

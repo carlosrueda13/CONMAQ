@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "agendamiento"
-    POSTGRES_PORT: str = "5432"
+    POSTGRES_PORT: str = "5433"
     DATABASE_URL: Optional[str] = None
 
     SECRET_KEY: str = "changethis_secret_key_for_dev"

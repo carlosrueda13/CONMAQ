@@ -6,3 +6,4 @@ from app.models.availability import AvailabilitySlot
 from app.models.offer import Offer
 from app.models.watchlist import Watchlist
 from app.models.notification import Notification
+from app.models.booking import Booking
