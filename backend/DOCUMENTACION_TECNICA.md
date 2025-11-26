@@ -238,6 +238,20 @@ Representa la reserva confirmada de una máquina.
 | `start_fuel_level` | `Float` | Nivel de combustible al inicio. |
 | `end_fuel_level` | `Float` | Nivel de combustible al final. |
 
+#### Clase `Transaction` (Hereda de `Base`)
+Registra los movimientos financieros asociados a una reserva.
+
+**Columnas:**
+| Nombre | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `id` | `Integer` | PK. |
+| `booking_id` | `Integer` | FK a `booking.id`. |
+| `amount` | `Float` | Monto de la transacción. |
+| `currency` | `String` | Moneda (default "USD"). |
+| `status` | `String` | `pending`, `completed`, `failed`. |
+| `provider_transaction_id` | `String` | ID externo (ej. Stripe PaymentIntent). |
+| `type` | `String` | `payment`, `refund`. |
+
 ---
 
 ## 6. Capa de Esquemas (DTOs)
@@ -301,6 +315,13 @@ DTOs para gestión de reservas.
 - `BookingCheckIn`: Input para operación de Check-in (`start_fuel_level`, `start_photos`).
 - `BookingCheckOut`: Input para operación de Check-out (`end_fuel_level`, `end_photos`).
 - `Booking`: Output completo con estado y evidencia.
+
+### Archivo: `app/schemas/transaction.py`
+DTOs para pagos.
+- `TransactionCreate`: Input interno para crear registro de pago.
+- `PaymentIntentResponse`: Respuesta al iniciar pago (`client_secret`, `transaction_id`).
+- `TransactionUpdate`: Input para confirmar pago (Webhook/Client).
+- `Transaction`: Output completo.
 
 ---
 
@@ -418,6 +439,35 @@ DTOs para gestión de reservas.
 - **Ruta:** `POST /api/v1/bookings/{id}/call-off`
 - **Lógica:** Marca el fin de uso (`actual_end_time`). Detiene el cobro de tiempo (lógica base).
 
+### Archivo: `app/api/v1/endpoints/payments.py`
+
+#### Endpoint: `create_payment_intent`
+- **Ruta:** `POST /api/v1/payments/create-intent/{booking_id}`
+- **Lógica:**
+    1. Verifica que la reserva esté en `pending_payment`.
+    2. Crea un registro `Transaction` en estado `pending`.
+    3. (Mock) Genera un `client_secret` simulado.
+    4. Retorna los datos necesarios para que el frontend procese el pago.
+
+#### Endpoint: `confirm_payment`
+- **Ruta:** `POST /api/v1/payments/confirm/{transaction_id}`
+- **Lógica:**
+    1. Actualiza `Transaction.status` a `completed`.
+    2. Actualiza `Booking.status` a `confirmed`.
+    3. Habilita la reserva para Check-in.
+
+### Archivo: `app/api/v1/endpoints/metrics.py`
+
+#### Endpoint: `get_financial_metrics`
+- **Ruta:** `GET /api/v1/metrics/financial`
+- **Permisos:** Admin Only.
+- **Lógica:** Calcula ingresos totales (pagos completados) y pendientes.
+
+#### Endpoint: `get_machine_metrics`
+- **Ruta:** `GET /api/v1/metrics/machines`
+- **Permisos:** Admin Only.
+- **Lógica:** Retorna el Top 5 de máquinas más rentadas.
+
 ---
 
 ## 8. Seguridad e Inyección de Dependencias
@@ -493,6 +543,13 @@ Servicio central de mensajería.
 - **Lógica:**
     1. Crea un registro persistente en la tabla `Notification`.
     2. (Simulación) Imprime en consola el contenido del mensaje, representando el envío de un Email o Push Notification.
+
+### Archivo: `app/services/payment.py`
+
+#### Clase: `PaymentService`
+Abstracción para pasarelas de pago.
+- **`create_payment_intent`**: Prepara la transacción y comunica con el proveedor (Stripe Mock).
+- **`confirm_payment`**: Maneja la lógica post-pago (actualización de estados cruzados Booking/Transaction).
 
 ---
 

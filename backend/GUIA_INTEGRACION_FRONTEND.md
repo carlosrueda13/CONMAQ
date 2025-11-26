@@ -236,7 +236,70 @@ Estas operaciones son críticas y requieren evidencia (fotos y nivel de combusti
 
 ---
 
-## 8. Manejo de Errores
+## 8. Integración de Pagos (Stripe)
+
+El flujo de pagos es híbrido: el backend crea la intención y el frontend (SDK de Stripe) finaliza la seguridad.
+
+### 8.1 Iniciar Pago
+- **Endpoint:** `POST /api/v1/payments/create-intent/{booking_id}`
+- **Respuesta:**
+  ```json
+  {
+    "client_secret": "pi_123_secret_456",
+    "transaction_id": 50,
+    "amount": 150.0,
+    "currency": "USD"
+  }
+  ```
+
+### 8.2 Procesar en Frontend (Flutter)
+1.  Instalar `flutter_stripe`.
+2.  Usar el `client_secret` recibido para confirmar el pago:
+    ```dart
+    await Stripe.instance.initPaymentSheet(
+      paymentSheetParameters: SetupPaymentSheetParameters(
+        paymentIntentClientSecret: response['client_secret'],
+        merchantDisplayName: 'CONMAQ',
+      ),
+    );
+    await Stripe.instance.presentPaymentSheet();
+    ```
+
+### 8.3 Confirmar al Backend
+Una vez que Stripe dice "Éxito" en la app:
+- **Endpoint:** `POST /api/v1/payments/confirm/{transaction_id}`
+- **Body:**
+  ```json
+  {
+    "provider_transaction_id": "pi_123_..." // ID que retorna Stripe
+  }
+  ```
+- **Efecto:** La reserva pasa a `confirmed`.
+
+---
+
+## 9. Dashboard Administrativo (Métricas)
+
+Si estás construyendo el panel de administración, usa estos endpoints.
+
+### 9.1 Métricas Financieras
+- **Endpoint:** `GET /api/v1/metrics/financial`
+- **Respuesta:**
+  ```json
+  {
+    "total_revenue": 15000.0,
+    "pending_revenue": 2500.0,
+    "currency": "USD"
+  }
+  ```
+
+### 9.2 Métricas de Maquinaria
+- **Endpoint:** `GET /api/v1/metrics/machines`
+- **Respuesta:** Lista de máquinas más rentadas.
+
+---
+
+## 10. Manejo de Errores
 
 El backend retorna errores estandarizados `HTTPException`.
 
@@ -254,7 +317,7 @@ El backend retorna errores estandarizados `HTTPException`.
 
 ---
 
-## 9. Flujo de Usuario Típico (Ejemplo)
+## 11. Flujo de Usuario Típico (Ejemplo)
 
 1.  **Home:** `GET /machines/` -> Muestra lista de equipos.
 2.  **Detalle:** Usuario toca una máquina -> Muestra specs y fotos.
@@ -270,8 +333,9 @@ El backend retorna errores estandarizados `HTTPException`.
     - Éxito: Toast "Oferta realizada".
     - Error (400): "Tu oferta es muy baja, el mínimo es $X".
 8.  **Reserva (Ganador):** Usuario recibe notificación de victoria y confirma -> `POST /bookings/from-offer/{id}`.
-9.  **Check-in:** Al llegar al sitio, usuario sube fotos y nivel de combustible -> `POST /bookings/{id}/check-in`.
-10. **Check-out:** Al finalizar, usuario reporta estado final -> `POST /bookings/{id}/check-out`.
+9.  **Pago:** Usuario paga con tarjeta -> `POST /payments/create-intent` -> Stripe SDK -> `POST /payments/confirm`.
+10. **Check-in:** Al llegar al sitio, usuario sube fotos y nivel de combustible -> `POST /bookings/{id}/check-in`.
+11. **Check-out:** Al finalizar, usuario reporta estado final -> `POST /bookings/{id}/check-out`.
 
 ---
 
