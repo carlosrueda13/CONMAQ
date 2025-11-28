@@ -24,7 +24,7 @@ def create_booking_from_offer(db: Session, offer_id: int) -> Booking:
         start_time=slot.start_time,
         end_time=slot.end_time,
         total_price=offer.amount, # Assuming offer amount is the winning price
-        status="confirmed" # Skipping pending_payment for MVP simplicity or assuming pre-auth
+        status="pending_payment"
     )
     
     db.add(booking)

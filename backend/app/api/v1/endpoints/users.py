@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
@@ -7,12 +7,15 @@ from app.api import deps
 from app.core import security
 from app.models.user import User
 from app.schemas.user import User as UserSchema, UserCreate
+from app.core.limiter import limiter
 
 router = APIRouter()
 
 @router.post("/", response_model=UserSchema)
+@limiter.limit("5/minute")
 def create_user(
     *,
+    request: Request,
     db: Session = Depends(deps.get_db),
     user_in: UserCreate,
 ) -> Any:

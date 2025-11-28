@@ -159,4 +159,5 @@ def place_bid(db: Session, slot_id: int, user_id: int, amount: float, max_bid_am
 
     db.commit()
     db.refresh(slot)
-    return slot
+    db.refresh(new_offer)
+    return slot, new_offer

@@ -314,6 +314,7 @@ El backend retorna errores estandarizados `HTTPException`.
   - `401 Unauthorized`: Token expirado o inválido -> **Acción:** Redirigir a Login.
   - `403 Forbidden`: No tienes permisos (ej. intentar crear máquina sin ser admin).
   - `404 Not Found`: Recurso no existe.
+  - `429 Too Many Requests`: Has excedido el límite de peticiones. Espera un momento.
 
 ---
 

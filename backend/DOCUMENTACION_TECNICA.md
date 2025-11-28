@@ -386,6 +386,7 @@ DTOs para pagos.
 #### Endpoint: `create_offer`
 - **Ruta:** `POST /api/v1/offers/`
 - **Input:** `OfferCreate` (`slot_id`, `amount`, `max_bid` opcional).
+- **Output:** JSON con `status`, `offer_id`, `slot_id`, `current_price`, `winner_id`, `auction_end_time`.
 - **Lógica:** Invoca `bidding.place_bid`. Soporta dos modos:
     1. **Proxy Bidding:** Si se envía `max_bid`, el sistema oferta automáticamente hasta ese límite.
     2. **Manual Bidding:** Si no se envía `max_bid`, la oferta es fija por el valor de `amount`.
@@ -423,7 +424,7 @@ DTOs para pagos.
 
 #### Endpoint: `create_booking_from_offer`
 - **Ruta:** `POST /api/v1/bookings/from-offer/{offer_id}`
-- **Lógica:** Convierte una oferta ganadora en una reserva confirmada. Copia precios y fechas del slot/oferta.
+- **Lógica:** Convierte una oferta ganadora en una reserva. Copia precios y fechas del slot/oferta. Inicializa el estado en `pending_payment`.
 
 #### Endpoint: `check_in`
 - **Ruta:** `POST /api/v1/bookings/{id}/check-in`
@@ -504,6 +505,33 @@ Validación de estado.
 - **Dependencia:** Llama a `get_current_user`.
 - **Lógica:** Verifica `user.is_active`. Si es falso, lanza 400.
 
+#### Función: `get_current_active_superuser`
+Validación de privilegios de sistema.
+- **Dependencia:** Llama a `get_current_active_user`.
+- **Lógica:** Verifica `user.is_superuser`. Si es falso, lanza 400.
+- **Uso:** Endpoints críticos de infraestructura (ej. crear máquinas, borrar usuarios).
+
+#### Función: `get_current_active_admin`
+Validación de rol administrativo.
+- **Dependencia:** Llama a `get_current_active_user`.
+- **Lógica:** Verifica si `user.role == "admin"` O si es superusuario.
+- **Uso:** Endpoints de negocio sensibles (ej. ver métricas financieras, gestionar reservas globales).
+- **Retorno:** Instancia del modelo `User` si cumple los requisitos.
+
+### Rate Limiting (Limitación de Velocidad)
+Implementado con `slowapi` para proteger la API.
+- **Archivo:** `app/core/limiter.py`.
+- **Configuración:**
+    - Login: 5/minuto.
+    - Registro: 3/minuto.
+    - Ofertas: 10/minuto.
+- **Respuesta:** `429 Too Many Requests`.
+
+### CORS y Trusted Host
+Configurados en `app/main.py`.
+- **CORS:** Permite orígenes `localhost`, `localhost:3000`.
+- **Trusted Host:** Protege contra ataques de Host Header.
+
 ---
 
 ## 9. Utilidades de Negocio
@@ -523,17 +551,43 @@ Generador automático de disponibilidad.
 ### Archivo: `app/services/bidding.py`
 
 #### Función: `place_bid`
-Motor central de subastas.
-- **Parámetros:** `db`, `slot_id`, `user_id`, `amount`, `max_bid_amount` (opcional).
-- **Reglas de Negocio:**
-    1. **Validación:** Verifica disponibilidad del slot y que la oferta supere el mínimo requerido.
-    2. **Normalización:** Si `max_bid_amount` es `None`, se establece igual a `amount` (Modo Manual).
-    3. **Proxy Bidding vs Manual:**
-        - Compara la nueva oferta con el `max_bid` del ganador actual.
-        - Si `nuevo_max > actual_max`: El nuevo usuario gana. El precio se ajusta a `actual_max + incremento` (o al monto de la oferta manual si es mayor).
-        - Si `nuevo_max <= actual_max`: El ganador actual se mantiene. El precio sube a `nuevo_max + incremento` para "defender" la posición del ganador actual.
-    4. **Soft Close:** Si la oferta ocurre cerca del cierre (`SOFT_CLOSE_MINUTES`), extiende la subasta (`SOFT_CLOSE_EXTENSION`).
-    5. **Notificaciones:** Si hay un cambio de ganador (Outbid), invoca a `notifications.send_notification` para alertar al perdedor.
+Motor central de subastas. Implementa la lógica de Proxy Bidding y Soft Close.
+
+- **Parámetros:**
+    - `db`: Sesión de base de datos.
+    - `slot_id`: ID del slot de disponibilidad.
+    - `user_id`: ID del usuario que oferta.
+    - `amount`: Monto visible de la oferta.
+    - `max_bid_amount` (opcional): Monto máximo secreto para auto-puja.
+
+- **Retorno:** Tupla `(AvailabilitySlot, Offer)`. Retorna el slot actualizado y la oferta creada.
+
+- **Reglas de Negocio Detalladas:**
+    1. **Validación de Entrada:**
+        - El slot debe existir y estar disponible (`is_available=True`).
+        - La subasta no debe haber finalizado (`now < auction_end_time`).
+        - `max_bid` no puede ser menor que `amount`.
+        - `max_bid` debe ser mayor o igual al precio actual + incremento mínimo (`MIN_INCREMENT = 10.0`).
+
+    2. **Lógica de Proxy Bidding (Auto-Puja):**
+        - **Caso 1: Primera Oferta.**
+            - El usuario se convierte en ganador inmediatamente.
+            - El precio actual se establece en el precio base (o el monto ofertado si no hay base).
+        - **Caso 2: Competencia (Ya existe un ganador).**
+            - Se compara el `max_bid` del nuevo usuario contra el `max_bid` del ganador actual.
+            - **Escenario A (Nuevo Ganador):** Si `nuevo_max > actual_max`:
+                - El nuevo usuario gana.
+                - El precio sube a `actual_max + incremento`.
+                - Se notifica al usuario anterior (`outbid`).
+            - **Escenario B (Defensa Exitosa):** Si `nuevo_max <= actual_max`:
+                - El ganador actual mantiene su posición.
+                - El precio sube automáticamente a `nuevo_max + incremento` para superar al retador, sin exceder su propio límite.
+                - La nueva oferta queda marcada como `outbid` inmediatamente.
+
+    3. **Soft Close (Extensión de Tiempo):**
+        - Si una oferta válida entra en los últimos `SOFT_CLOSE_MINUTES` (5 min) antes del cierre.
+        - Se extiende la `auction_end_time` por `SOFT_CLOSE_EXTENSION` (10 min).
+        - Esto previene el "sniping" (ofertas de último segundo) y permite una competencia justa.
 
 ### Archivo: `app/services/notifications.py`
 
@@ -582,7 +636,7 @@ Para facilitar el desarrollo y pruebas, se incluye un script que crea un **Super
   - Password: `admin`
 
 ### Pruebas Automatizadas (Pytest)
-Se ha configurado `pytest` para pruebas de integración.
+Se ha configurado `pytest` para pruebas de integración y unitarias.
 
 - **Estructura:** Carpeta `app/tests/`.
 - **Ejecución:**
@@ -590,9 +644,19 @@ Se ha configurado `pytest` para pruebas de integración.
   pytest
   ```
 - **Escenarios Clave:**
-  - `test_bidding_flow`: Verifica la lógica de Proxy Bidding.
-  - `test_manual_bidding`: Verifica la lógica de ofertas manuales sin auto-incremento.
-- **Nota:** Las pruebas requieren que la base de datos esté corriendo y accesible.
+  - `test_bookings.py`: Flujo completo de integración (Oferta -> Reserva -> Pago -> Check-in/out).
+  - `test_bidding.py`: Pruebas unitarias del motor de subastas.
+    - **Manual Bidding:** Verifica que una oferta simple supere a la anterior.
+    - **Proxy Bidding (Defensa):** Verifica que un `max_bid` alto defienda automáticamente la posición del ganador ante ofertas menores.
+    - **Proxy Bidding (Overtake):** Verifica que una nueva oferta con `max_bid` superior desplace al ganador actual y ajuste el precio correctamente.
+    - **Soft Close:** Verifica matemáticamente que una oferta en los últimos minutos extienda la fecha de fin (`auction_end_time`).
+- **Nota:** Las pruebas de integración requieren DB activa. Las unitarias usan Mocks.
+
+### Generación de Datos (Seeding)
+Script para poblar la base de datos con información realista usando `Faker`.
+- **Archivo:** `app/db/seeds.py`.
+- **Contenido:** 50 máquinas, 20 usuarios, historial de ofertas.
+- **Ejecución:** Automática al iniciar `app/initial_data.py` si la DB está vacía.
 
 ---
 *Fin del Manual Técnico de Referencia*

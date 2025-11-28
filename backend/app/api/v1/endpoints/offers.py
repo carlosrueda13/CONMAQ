@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.api import deps
@@ -7,12 +7,15 @@ from app.models.user import User
 from app.schemas.offer import Offer, OfferCreate
 from app.services.bidding import place_bid
 from app.models.offer import Offer as OfferModel
+from app.core.limiter import limiter
 
 router = APIRouter()
 
 @router.post("/", response_model=Any)
+@limiter.limit("20/minute")
 def create_offer(
     *,
+    request: Request,
     db: Session = Depends(deps.get_db),
     offer_in: OfferCreate,
     current_user: User = Depends(deps.get_current_active_user),
@@ -21,7 +24,7 @@ def create_offer(
     Place a new bid (offer) on an availability slot.
     """
     try:
-        updated_slot = place_bid(
+        updated_slot, new_offer = place_bid(
             db=db,
             slot_id=offer_in.slot_id,
             user_id=current_user.id,
@@ -30,6 +33,7 @@ def create_offer(
         )
         return {
             "status": "success",
+            "offer_id": new_offer.id,
             "slot_id": updated_slot.id,
             "current_price": updated_slot.current_price,
             "winner_id": updated_slot.winner_id,
