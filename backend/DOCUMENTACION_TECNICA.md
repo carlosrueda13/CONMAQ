@@ -1,8 +1,8 @@
 # Manual Técnico de Referencia - Sistema CONMAQ
 
-**Versión del Documento:** 1.3
-**Fecha de Última Actualización:** 26 de Noviembre de 2025
-**Estado:** Fase 3 (Operaciones y Reservas)
+**Versión del Documento:** 1.5
+**Fecha de Última Actualización:** 30 de Noviembre de 2025
+**Estado:** Fase 4 (Calidad y Estabilización)
 
 ---
 
