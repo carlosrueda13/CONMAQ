@@ -9,6 +9,8 @@ from app.models.user import User
 from app.schemas.user import User as UserSchema, UserCreate
 from app.core.limiter import limiter
 
+from app.services import user as user_service
+
 router = APIRouter()
 
 @router.post("/", response_model=UserSchema)
@@ -22,25 +24,14 @@ def create_user(
     """
     Create new user.
     """
-    user = db.query(User).filter(User.email == user_in.email).first()
+    user = user_service.get_user_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(
             status_code=400,
             detail="The user with this username already exists in the system.",
         )
     
-    db_obj = User(
-        email=user_in.email,
-        hashed_password=security.get_password_hash(user_in.password),
-        full_name=user_in.full_name,
-        phone=user_in.phone,
-        role=user_in.role,
-        is_superuser=user_in.is_superuser,
-    )
-    db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
-    return db_obj
+    return user_service.create_user(db, user_in)
 
 @router.get("/me", response_model=UserSchema)
 def read_user_me(

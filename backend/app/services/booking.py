@@ -1,9 +1,30 @@
+from typing import List, Optional
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.models.booking import Booking
 from app.models.offer import Offer
+from app.models.user import User
 from app.models.availability import AvailabilitySlot
 from app.schemas.booking import BookingCreate, BookingCheckIn, BookingCheckOut
+
+def get_bookings(db: Session, user: User, skip: int = 0, limit: int = 100) -> List[Booking]:
+    if user.is_superuser:
+        return db.query(Booking).offset(skip).limit(limit).all()
+    return db.query(Booking).filter(Booking.user_id == user.id).offset(skip).limit(limit).all()
+
+def create_booking(db: Session, booking_in: BookingCreate) -> Booking:
+    booking = Booking(
+        user_id=booking_in.user_id,
+        machine_id=booking_in.machine_id,
+        start_time=booking_in.start_time,
+        end_time=booking_in.end_time,
+        total_price=booking_in.total_price,
+        status=booking_in.status
+    )
+    db.add(booking)
+    db.commit()
+    db.refresh(booking)
+    return booking
 
 def create_booking_from_offer(db: Session, offer_id: int) -> Booking:
     offer = db.query(Offer).filter(Offer.id == offer_id).first()

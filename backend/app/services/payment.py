@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.booking import Booking
@@ -76,3 +77,7 @@ class PaymentService:
         db.commit()
         db.refresh(transaction)
         return transaction
+
+    @staticmethod
+    def get_payment_history(db: Session, booking_id: int) -> List[Transaction]:
+        return db.query(Transaction).filter(Transaction.booking_id == booking_id).all()

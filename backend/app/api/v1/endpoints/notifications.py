@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.models.user import User
-from app.models.notification import Notification
 from app.schemas.notification import Notification as NotificationSchema
+from app.services.notifications import get_user_notifications, mark_notification_as_read
 
 router = APIRouter()
 
@@ -19,13 +19,10 @@ def read_notifications(
     """
     Retrieve current user's notifications.
     """
-    notifications = db.query(Notification).filter(
-        Notification.user_id == current_user.id
-    ).order_by(Notification.created_at.desc()).offset(skip).limit(limit).all()
-    return notifications
+    return get_user_notifications(db, current_user.id, skip, limit)
 
 @router.put("/{id}/read", response_model=NotificationSchema)
-def mark_notification_as_read(
+def mark_notification_as_read_endpoint(
     *,
     db: Session = Depends(deps.get_db),
     id: int,
@@ -34,15 +31,9 @@ def mark_notification_as_read(
     """
     Mark a notification as read.
     """
-    notification = db.query(Notification).filter(
-        Notification.id == id,
-        Notification.user_id == current_user.id
-    ).first()
+    notification = mark_notification_as_read(db, current_user.id, id)
     
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
     
-    notification.is_read = True
-    db.commit()
-    db.refresh(notification)
     return notification

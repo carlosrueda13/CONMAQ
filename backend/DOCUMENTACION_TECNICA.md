@@ -28,14 +28,15 @@ Este documento sirve como la referencia técnica definitiva para el backend del 
 
 ## 2. Arquitectura del Proyecto
 
-El proyecto sigue una arquitectura en capas basada en **FastAPI**, diseñada para separar responsabilidades y facilitar el mantenimiento.
+El proyecto sigue una arquitectura en capas basada en **FastAPI**, diseñada para separar responsabilidades y facilitar el mantenimiento. Se ha implementado un patrón de **Capa de Servicios de Dominio** para desacoplar la lógica de negocio de la capa de transporte HTTP.
 
 ### Estructura de Directorios
 - **`app/core`**: Contiene la configuración global y lógica de seguridad transversal.
 - **`app/db`**: Maneja la conexión a la base de datos y la definición del ORM.
 - **`app/models`**: Define las tablas de la base de datos (Entidades).
 - **`app/schemas`**: Define los modelos Pydantic para validación de datos (Data Transfer Objects).
-- **`app/api`**: Contiene los endpoints (controladores) y dependencias.
+- **`app/services`**: **NUEVO**. Contiene la lógica de negocio pura, organizada por dominios.
+- **`app/api`**: Contiene los endpoints (controladores) y dependencias. Ahora actúan como una capa delgada de entrada/salida.
 
 ---
 
@@ -325,153 +326,87 @@ DTOs para pagos.
 
 ---
 
-## 7. Capa de API y Controladores
+## 7. Capa de Servicios (Lógica de Negocio)
 
-### Archivo: `app/api/v1/endpoints/auth.py`
+Esta capa (`app/services/`) contiene toda la inteligencia del negocio. Los controladores API solo llaman a estas funciones.
 
-#### Endpoint: `login_access_token`
-- **Ruta:** `POST /api/v1/auth/login/access-token`
-- **Input:** `OAuth2PasswordRequestForm` (username, password).
-- **Output:** `Token` schema.
-- **Lógica:**
-    1. Busca usuario por email (`username`).
-    2. Verifica password con `security.verify_password`.
-    3. Verifica si `user.is_active`.
-    4. Genera token con `security.create_access_token`.
-    5. Retorna token.
-- **Errores:** Retorna 400 si credenciales son inválidas o usuario inactivo.
+### Archivo: `app/services/offer.py` (Antes `bidding.py`)
+Motor central de subastas. Implementa la lógica de Proxy Bidding y Soft Close.
+- **`place_bid`**: Gestiona la creación de ofertas, validación de reglas, actualización de precios y notificaciones.
+- **`get_user_offers`**: Recupera historial de ofertas de un usuario.
+- **`get_slot_offers`**: Recupera ofertas de un slot.
 
-### Archivo: `app/api/v1/endpoints/users.py`
+### Archivo: `app/services/booking.py`
+Gestión del ciclo de vida de una reserva.
+- **`create_booking_from_offer`**: Convierte una oferta ganadora en reserva.
+- **`perform_check_in`**: Valida y registra el inicio de renta.
+- **`perform_check_out`**: Valida y registra el fin de renta.
+- **`perform_call_off`**: Gestiona devoluciones anticipadas.
 
-#### Endpoint: `create_user`
-- **Ruta:** `POST /api/v1/users/`
-- **Input:** `UserCreate` (JSON).
-- **Output:** `User` (JSON sin password).
-- **Lógica:**
-    1. Verifica si el email ya existe en DB. Si sí, lanza 400.
-    2. Crea instancia del modelo `User`.
-    3. Hashea el password.
-    4. Guarda en DB (`db.add`, `db.commit`).
-    5. Retorna el objeto creado.
+### Archivo: `app/services/machine.py`
+CRUD de máquinas y lógica de disponibilidad.
+- **`generate_availability`**: Genera slots vacíos para el calendario.
+- **`get_machines`**: Búsqueda con filtros.
 
-#### Endpoint: `read_user_me`
-- **Ruta:** `GET /api/v1/users/me`
-- **Dependencia:** `get_current_active_user`.
-- **Lógica:** Retorna el objeto usuario asociado al token actual.
+### Archivo: `app/services/payment.py`
+Abstracción para pasarelas de pago.
+- **`create_payment_intent`**: Prepara la transacción.
+- **`confirm_payment`**: Finaliza el pago y confirma la reserva.
 
-### Archivo: `app/api/v1/endpoints/machines.py`
+### Archivo: `app/services/notifications.py`
+Sistema de mensajería interna.
+- **`send_notification`**: Crea y "envía" alertas.
 
-#### Endpoint: `read_machines`
-- **Ruta:** `GET /api/v1/machines/`
-- **Filtros:** `status`, `serial_number`.
-- **Lógica:** Retorna la lista de máquinas, opcionalmente filtrada.
+### Archivo: `app/services/watchlist.py`
+Gestión de favoritos.
+- **`toggle_watchlist_item`**: Añade o quita máquinas de la lista de seguimiento.
 
-#### Endpoint: `create_machine`
-- **Ruta:** `POST /api/v1/machines/`
-- **Permisos:** Solo Superusuario.
-- **Lógica:** Crea una nueva máquina en el sistema.
-
-#### Endpoint: `generate_machine_availability`
-- **Ruta:** `POST /api/v1/machines/{id}/availability/generate`
-- **Parámetros:** `days` (default 30), `start_hour` (default 8), `end_hour` (default 18).
-- **Lógica:** Invoca al `scheduler` para crear slots de disponibilidad.
-
-#### Endpoint: `read_machine_availability`
-- **Ruta:** `GET /api/v1/machines/{id}/availability`
-- **Filtros:** `start_date`, `end_date`.
-- **Lógica:** Retorna la lista de slots para una máquina.
-
-### Archivo: `app/api/v1/endpoints/offers.py`
-
-#### Endpoint: `create_offer`
-- **Ruta:** `POST /api/v1/offers/`
-- **Input:** `OfferCreate` (`slot_id`, `amount`, `max_bid` opcional).
-- **Output:** JSON con `status`, `offer_id`, `slot_id`, `current_price`, `winner_id`, `auction_end_time`.
-- **Lógica:** Invoca `bidding.place_bid`. Soporta dos modos:
-    1. **Proxy Bidding:** Si se envía `max_bid`, el sistema oferta automáticamente hasta ese límite.
-    2. **Manual Bidding:** Si no se envía `max_bid`, la oferta es fija por el valor de `amount`.
-
-#### Endpoint: `read_my_offers`
-- **Ruta:** `GET /api/v1/offers/my-offers`
-- **Lógica:** Retorna el historial de ofertas del usuario autenticado.
-
-### Archivo: `app/api/v1/endpoints/watchlist.py`
-
-#### Endpoint: `toggle_watchlist`
-- **Ruta:** `POST /api/v1/watchlist/toggle`
-- **Input:** `WatchlistCreate` (`machine_id`).
-- **Lógica:**
-    1. Busca si ya existe la relación `user_id` - `machine_id`.
-    2. Si existe: Elimina el registro (Remove).
-    3. Si no existe: Crea el registro (Add).
-    4. Retorna estado (`added` o `removed`).
-
-#### Endpoint: `read_watchlist`
-- **Ruta:** `GET /api/v1/watchlist/`
-- **Lógica:** Retorna todas las máquinas seguidas por el usuario.
-
-### Archivo: `app/api/v1/endpoints/notifications.py`
-
-#### Endpoint: `read_notifications`
-- **Ruta:** `GET /api/v1/notifications/`
-- **Lógica:** Retorna notificaciones del usuario, ordenadas por fecha descendente.
-
-#### Endpoint: `mark_notification_as_read`
-- **Ruta:** `PUT /api/v1/notifications/{id}/read`
-- **Lógica:** Actualiza el campo `is_read = True` para la notificación especificada.
-
-### Archivo: `app/api/v1/endpoints/bookings.py`
-
-#### Endpoint: `create_booking_from_offer`
-- **Ruta:** `POST /api/v1/bookings/from-offer/{offer_id}`
-- **Lógica:** Convierte una oferta ganadora en una reserva. Copia precios y fechas del slot/oferta. Inicializa el estado en `pending_payment`.
-
-#### Endpoint: `check_in`
-- **Ruta:** `POST /api/v1/bookings/{id}/check-in`
-- **Input:** `BookingCheckIn` (Fotos, Combustible).
-- **Lógica:** Cambia estado a `active`, registra evidencia inicial.
-
-#### Endpoint: `check_out`
-- **Ruta:** `POST /api/v1/bookings/{id}/check-out`
-- **Input:** `BookingCheckOut` (Fotos, Combustible).
-- **Lógica:** Cambia estado a `completed`, registra evidencia final.
-
-#### Endpoint: `call_off`
-- **Ruta:** `POST /api/v1/bookings/{id}/call-off`
-- **Lógica:** Marca el fin de uso (`actual_end_time`). Detiene el cobro de tiempo (lógica base).
-
-### Archivo: `app/api/v1/endpoints/payments.py`
-
-#### Endpoint: `create_payment_intent`
-- **Ruta:** `POST /api/v1/payments/create-intent/{booking_id}`
-- **Lógica:**
-    1. Verifica que la reserva esté en `pending_payment`.
-    2. Crea un registro `Transaction` en estado `pending`.
-    3. (Mock) Genera un `client_secret` simulado.
-    4. Retorna los datos necesarios para que el frontend procese el pago.
-
-#### Endpoint: `confirm_payment`
-- **Ruta:** `POST /api/v1/payments/confirm/{transaction_id}`
-- **Lógica:**
-    1. Actualiza `Transaction.status` a `completed`.
-    2. Actualiza `Booking.status` a `confirmed`.
-    3. Habilita la reserva para Check-in.
-
-### Archivo: `app/api/v1/endpoints/metrics.py`
-
-#### Endpoint: `get_financial_metrics`
-- **Ruta:** `GET /api/v1/metrics/financial`
-- **Permisos:** Admin Only.
-- **Lógica:** Calcula ingresos totales (pagos completados) y pendientes.
-
-#### Endpoint: `get_machine_metrics`
-- **Ruta:** `GET /api/v1/metrics/machines`
-- **Permisos:** Admin Only.
-- **Lógica:** Retorna el Top 5 de máquinas más rentadas.
+### Archivo: `app/services/metrics.py`
+Cálculo de indicadores clave.
+- **`calculate_financial_metrics`**: Ingresos totales y pendientes.
+- **`get_top_machines`**: Ranking de máquinas más populares.
 
 ---
 
-## 8. Seguridad e Inyección de Dependencias
+## 8. Capa de API (Controladores)
+
+Los controladores en `app/api/v1/endpoints/` ahora son "delgados". Su única responsabilidad es:
+1. Recibir la petición HTTP.
+2. Validar el esquema de entrada (Pydantic).
+3. Obtener la sesión de DB.
+4. Llamar al Servicio correspondiente.
+5. Retornar la respuesta.
+
+### Archivo: `app/api/v1/endpoints/auth.py`
+*(Sin cambios mayores, maneja lógica de tokens)*
+
+### Archivo: `app/api/v1/endpoints/users.py`
+Delega a `user_service`.
+
+### Archivo: `app/api/v1/endpoints/machines.py`
+Delega a `machine_service`.
+
+### Archivo: `app/api/v1/endpoints/offers.py`
+Delega a `offer_service`.
+
+### Archivo: `app/api/v1/endpoints/watchlist.py`
+Delega a `watchlist_service`.
+
+### Archivo: `app/api/v1/endpoints/notifications.py`
+Delega a `notification_service`.
+
+### Archivo: `app/api/v1/endpoints/bookings.py`
+Delega a `booking_service`.
+
+### Archivo: `app/api/v1/endpoints/payments.py`
+Delega a `PaymentService`.
+
+### Archivo: `app/api/v1/endpoints/metrics.py`
+Delega a `metrics_service`.
+
+---
+
+## 9. Seguridad e Inyección de Dependencias
 
 ### Archivo: `app/api/deps.py`
 
@@ -609,6 +544,38 @@ Abstracción para pasarelas de pago.
 
 ## 10. Testing y Despliegue
 
+### Gestión de Dependencias
+El proyecto utiliza un sistema de dependencias de dos niveles para garantizar reproducibilidad.
+
+- **`requirements.in`**: Dependencias principales de producción.
+- **`requirements-dev.in`**: Herramientas de desarrollo y testing.
+- **`requirements.txt`**: Archivo generado (lock file) con versiones exactas para producción.
+- **`requirements-dev.txt`**: Archivo generado para entorno de desarrollo.
+
+**Instalación:**
+```bash
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
+### Pruebas Automatizadas (Pytest)
+El proyecto cuenta con una suite de pruebas robusta ubicada en `backend/tests/`.
+
+- **Estructura:**
+    - `tests/api/v1/`: Pruebas de integración de endpoints.
+    - `tests/services/`: Pruebas unitarias de lógica de negocio.
+    - `tests/models/`: Pruebas de integridad de datos.
+- **Configuración:** `tests/conftest.py` configura una base de datos SQLite en memoria para pruebas aisladas y rápidas.
+
+**Ejecución:**
+```bash
+# Ejecutar todos los tests
+pytest
+
+# Ejecutar con reporte de cobertura
+pytest --cov=app --cov-report=term-missing
+```
+
 ### Migraciones de Base de Datos (Alembic)
 El proyecto utiliza Alembic para gestionar los cambios en el esquema de la base de datos.
 
@@ -635,28 +602,46 @@ Para facilitar el desarrollo y pruebas, se incluye un script que crea un **Super
   - Email: `admin@conmaq.com`
   - Password: `admin`
 
-### Pruebas Automatizadas (Pytest)
-Se ha configurado `pytest` para pruebas de integración y unitarias.
-
-- **Estructura:** Carpeta `app/tests/`.
-- **Ejecución:**
-  ```bash
-  pytest
-  ```
-- **Escenarios Clave:**
-  - `test_bookings.py`: Flujo completo de integración (Oferta -> Reserva -> Pago -> Check-in/out).
-  - `test_bidding.py`: Pruebas unitarias del motor de subastas.
-    - **Manual Bidding:** Verifica que una oferta simple supere a la anterior.
-    - **Proxy Bidding (Defensa):** Verifica que un `max_bid` alto defienda automáticamente la posición del ganador ante ofertas menores.
-    - **Proxy Bidding (Overtake):** Verifica que una nueva oferta con `max_bid` superior desplace al ganador actual y ajuste el precio correctamente.
-    - **Soft Close:** Verifica matemáticamente que una oferta en los últimos minutos extienda la fecha de fin (`auction_end_time`).
-- **Nota:** Las pruebas de integración requieren DB activa. Las unitarias usan Mocks.
-
 ### Generación de Datos (Seeding)
 Script para poblar la base de datos con información realista usando `Faker`.
 - **Archivo:** `app/db/seeds.py`.
 - **Contenido:** 50 máquinas, 20 usuarios, historial de ofertas.
 - **Ejecución:** Automática al iniciar `app/initial_data.py` si la DB está vacía.
+
+## 11. Calidad de Código y CI/CD
+
+### Análisis Estático
+Se utilizan herramientas estándar de la industria configuradas en `pyproject.toml`.
+
+- **Black**: Formateador de código.
+- **Isort**: Ordenamiento de imports.
+- **Ruff**: Linter rápido para detectar errores y problemas de estilo.
+- **Mypy**: Verificación estática de tipos.
+
+**Comandos de Verificación:**
+```bash
+# Formatear
+black app
+isort app
+
+# Linting
+ruff check app
+
+# Type Checking
+mypy app
+```
+
+### Integración Continua (GitHub Actions)
+El flujo de trabajo `.github/workflows/backend-ci.yml` se ejecuta en cada `push` y `pull_request` a la rama `main`.
+
+**Pasos del Pipeline:**
+1.  **Setup**: Instala Python 3.11 y dependencias.
+2.  **Lint**: Ejecuta Ruff.
+3.  **Format Check**: Verifica que el código cumpla con Black e Isort.
+4.  **Type Check**: Ejecuta Mypy.
+5.  **Test**: Ejecuta la suite de Pytest con reporte de cobertura.
+
+Si algún paso falla, el commit es rechazado.
 
 ---
 *Fin del Manual Técnico de Referencia*

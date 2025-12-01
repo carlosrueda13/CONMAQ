@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.models.user import User
 from app.schemas.offer import Offer, OfferCreate
-from app.services.bidding import place_bid
+from app.services import offer as offer_service
 from app.models.offer import Offer as OfferModel
 from app.core.limiter import limiter
 
@@ -24,7 +24,7 @@ def create_offer(
     Place a new bid (offer) on an availability slot.
     """
     try:
-        updated_slot, new_offer = place_bid(
+        updated_slot, new_offer = offer_service.place_bid(
             db=db,
             slot_id=offer_in.slot_id,
             user_id=current_user.id,
@@ -55,8 +55,7 @@ def read_my_offers(
     """
     Retrieve offers made by the current user.
     """
-    offers = db.query(OfferModel).filter(OfferModel.user_id == current_user.id).offset(skip).limit(limit).all()
-    return offers
+    return offer_service.get_user_offers(db, current_user.id, skip, limit)
 
 @router.get("/slot/{slot_id}", response_model=List[Offer])
 def read_slot_offers(
@@ -69,5 +68,4 @@ def read_slot_offers(
     """
     Retrieve offers for a specific slot.
     """
-    offers = db.query(OfferModel).filter(OfferModel.slot_id == slot_id).order_by(OfferModel.amount.desc()).offset(skip).limit(limit).all()
-    return offers
+    return offer_service.get_slot_offers(db, slot_id, skip, limit)

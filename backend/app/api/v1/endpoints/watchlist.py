@@ -1,11 +1,11 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.models.user import User
-from app.models.watchlist import Watchlist
 from app.schemas.watchlist import Watchlist as WatchlistSchema, WatchlistCreate
+from app.services.watchlist import toggle_watchlist_for_user, get_user_watchlist
 
 router = APIRouter()
 
@@ -19,24 +19,7 @@ def toggle_watchlist(
     """
     Toggle a machine in the user's watchlist.
     """
-    existing_item = db.query(Watchlist).filter(
-        Watchlist.user_id == current_user.id,
-        Watchlist.machine_id == watchlist_in.machine_id
-    ).first()
-
-    if existing_item:
-        db.delete(existing_item)
-        db.commit()
-        return {"status": "removed", "machine_id": watchlist_in.machine_id}
-    else:
-        new_item = Watchlist(
-            user_id=current_user.id,
-            machine_id=watchlist_in.machine_id
-        )
-        db.add(new_item)
-        db.commit()
-        db.refresh(new_item)
-        return {"status": "added", "machine_id": watchlist_in.machine_id}
+    return toggle_watchlist_for_user(db, current_user, watchlist_in)
 
 @router.get("/", response_model=List[WatchlistSchema])
 def read_watchlist(
@@ -48,5 +31,4 @@ def read_watchlist(
     """
     Retrieve current user's watchlist.
     """
-    items = db.query(Watchlist).filter(Watchlist.user_id == current_user.id).offset(skip).limit(limit).all()
-    return items
+    return get_user_watchlist(db, current_user, skip, limit)

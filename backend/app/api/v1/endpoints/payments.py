@@ -45,5 +45,4 @@ def get_payment_history(
     """
     Get all transactions for a specific booking.
     """
-    transactions = db.query(TransactionModel).filter(TransactionModel.booking_id == booking_id).all()
-    return transactions
+    return PaymentService.get_payment_history(db, booking_id)

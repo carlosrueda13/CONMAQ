@@ -19,11 +19,7 @@ def read_bookings(
     """
     Retrieve bookings.
     """
-    if current_user.is_superuser:
-        bookings = db.query(BookingModel).offset(skip).limit(limit).all()
-    else:
-        bookings = db.query(BookingModel).filter(BookingModel.user_id == current_user.id).offset(skip).limit(limit).all()
-    return bookings
+    return booking_service.get_bookings(db, current_user, skip, limit)
 
 @router.post("/", response_model=Booking)
 def create_booking(
@@ -35,18 +31,7 @@ def create_booking(
     """
     Create new booking (Admin or internal).
     """
-    booking = BookingModel(
-        user_id=booking_in.user_id,
-        machine_id=booking_in.machine_id,
-        start_time=booking_in.start_time,
-        end_time=booking_in.end_time,
-        total_price=booking_in.total_price,
-        status=booking_in.status
-    )
-    db.add(booking)
-    db.commit()
-    db.refresh(booking)
-    return booking
+    return booking_service.create_booking(db, booking_in)
 
 @router.post("/from-offer/{offer_id}", response_model=Booking)
 def create_booking_from_offer(

@@ -11,6 +11,8 @@ from app.models.availability import AvailabilitySlot as AvailabilitySlotModel
 from app.utils.scheduler import generate_slots_for_machine
 from datetime import datetime
 
+from app.services import machine as machine_service
+
 router = APIRouter()
 
 @router.get("/", response_model=List[MachineSchema])
@@ -24,13 +26,7 @@ def read_machines(
     """
     Retrieve machines.
     """
-    query = db.query(Machine)
-    if status:
-        query = query.filter(Machine.status == status)
-    if serial_number:
-        query = query.filter(Machine.serial_number == serial_number)
-    machines = query.offset(skip).limit(limit).all()
-    return machines
+    return machine_service.get_machines(db, skip, limit, status, serial_number)
 
 @router.post("/", response_model=MachineSchema)
 def create_machine(
@@ -42,26 +38,7 @@ def create_machine(
     """
     Create new machine. Only superusers can create machines.
     """
-    db_obj = Machine(
-        name=machine_in.name,
-        serial_number=machine_in.serial_number,
-        description=machine_in.description,
-        specs=machine_in.specs,
-        capacity_m3h=machine_in.capacity_m3h,
-        fuel_type=machine_in.fuel_type,
-        tank_capacity=machine_in.tank_capacity,
-        price_base_per_hour=machine_in.price_base_per_hour,
-        min_hours=machine_in.min_hours,
-        location_lat=machine_in.location_lat,
-        location_lng=machine_in.location_lng,
-        address=machine_in.address,
-        photos=machine_in.photos,
-        status=machine_in.status,
-    )
-    db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
-    return db_obj
+    return machine_service.create_machine(db, machine_in)
 
 @router.get("/{id}", response_model=MachineSchema)
 def read_machine(
@@ -72,7 +49,7 @@ def read_machine(
     """
     Get machine by ID.
     """
-    machine = db.query(Machine).filter(Machine.id == id).first()
+    machine = machine_service.get_machine(db, id)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
     return machine
@@ -88,18 +65,11 @@ def update_machine(
     """
     Update a machine. Only superusers.
     """
-    machine = db.query(Machine).filter(Machine.id == id).first()
+    machine = machine_service.get_machine(db, id)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
     
-    update_data = machine_in.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(machine, field, value)
-        
-    db.add(machine)
-    db.commit()
-    db.refresh(machine)
-    return machine
+    return machine_service.update_machine(db, machine, machine_in)
 
 @router.delete("/{id}", response_model=MachineSchema)
 def delete_machine(
@@ -111,12 +81,10 @@ def delete_machine(
     """
     Delete a machine. Only superusers.
     """
-    machine = db.query(Machine).filter(Machine.id == id).first()
+    machine = machine_service.get_machine(db, id)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
-    db.delete(machine)
-    db.commit()
-    return machine
+    return machine_service.delete_machine(db, machine)
 
 @router.post("/{id}/availability/generate", response_model=dict)
 def generate_machine_availability(
@@ -131,11 +99,11 @@ def generate_machine_availability(
     """
     Generate availability slots for a machine. Only superusers.
     """
-    machine = db.query(Machine).filter(Machine.id == id).first()
+    machine = machine_service.get_machine(db, id)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
     
-    slots_count = generate_slots_for_machine(db, id, datetime.now(), days=days, start_hour=start_hour, end_hour=end_hour)
+    slots_count = machine_service.generate_availability(db, id, days, start_hour, end_hour)
     return {"message": f"Generated {slots_count} slots for machine {id}"}
 
 @router.get("/{id}/availability", response_model=List[AvailabilitySlotSchema])
@@ -149,16 +117,8 @@ def read_machine_availability(
     """
     Get availability slots for a machine.
     """
-    machine = db.query(Machine).filter(Machine.id == id).first()
+    machine = machine_service.get_machine(db, id)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
     
-    query = db.query(AvailabilitySlotModel).filter(AvailabilitySlotModel.machine_id == id)
-    
-    if start_date:
-        query = query.filter(AvailabilitySlotModel.start_time >= start_date)
-    if end_date:
-        query = query.filter(AvailabilitySlotModel.end_time <= end_date)
-        
-    slots = query.order_by(AvailabilitySlotModel.start_time).all()
-    return slots
+    return machine_service.get_availability(db, id, start_date, end_date)

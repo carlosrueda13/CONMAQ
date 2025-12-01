@@ -1,3 +1,4 @@
+from typing import List
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -161,3 +162,9 @@ def place_bid(db: Session, slot_id: int, user_id: int, amount: float, max_bid_am
     db.refresh(slot)
     db.refresh(new_offer)
     return slot, new_offer
+
+def get_user_offers(db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[Offer]:
+    return db.query(Offer).filter(Offer.user_id == user_id).offset(skip).limit(limit).all()
+
+def get_slot_offers(db: Session, slot_id: int, skip: int = 0, limit: int = 100) -> List[Offer]:
+    return db.query(Offer).filter(Offer.slot_id == slot_id).order_by(Offer.amount.desc()).offset(skip).limit(limit).all()
