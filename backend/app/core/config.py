@@ -11,10 +11,15 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "agendamiento"
     POSTGRES_PORT: str = "5433"
     DATABASE_URL: Optional[str] = None
+    
+    REDIS_URL: str = "redis://redis:6379/0"
 
     SECRET_KEY: str = "changethis_secret_key_for_dev"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    ENV: str = "development"
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost", "http://localhost:3000", "http://localhost:8080"]
 
     model_config = {"case_sensitive": True, "env_file": ".env"}
 
@@ -22,5 +27,8 @@ class Settings(BaseSettings):
         super().__init__(**kwargs)
         if not self.DATABASE_URL:
             self.DATABASE_URL = f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        
+        if self.ENV == "production" and self.SECRET_KEY == "changethis_secret_key_for_dev":
+            raise ValueError("SECRET_KEY must be set for production")
 
 settings = Settings()

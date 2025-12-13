@@ -1,0 +1,28 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install bandit pip-audit
+      - name: Bandit scan
+        run: |
+          cd backend
+          bandit -r app -ll
+      - name: Pip audit
+        run: |
+          cd backend
+          pip-audit

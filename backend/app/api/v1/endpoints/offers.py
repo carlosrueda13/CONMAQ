@@ -46,7 +46,7 @@ def create_offer(
         raise HTTPException(status_code=500, detail="Internal Server Error during bidding")
 
 @router.get("/my-offers", response_model=List[Offer])
-def read_my_offers(
+async def read_my_offers(
     db: Session = Depends(deps.get_db),
     skip: int = 0,
     limit: int = 100,
@@ -58,7 +58,7 @@ def read_my_offers(
     return offer_service.get_user_offers(db, current_user.id, skip, limit)
 
 @router.get("/slot/{slot_id}", response_model=List[Offer])
-def read_slot_offers(
+async def read_slot_offers(
     slot_id: int,
     db: Session = Depends(deps.get_db),
     skip: int = 0,

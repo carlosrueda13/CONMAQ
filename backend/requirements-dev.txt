@@ -11,3 +11,6 @@ ruff
 types-python-jose
 types-passlib
 types-redis
+locust
+bandit
+pip-audit

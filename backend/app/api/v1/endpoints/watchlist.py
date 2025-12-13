@@ -22,7 +22,7 @@ def toggle_watchlist(
     return toggle_watchlist_for_user(db, current_user, watchlist_in)
 
 @router.get("/", response_model=List[WatchlistSchema])
-def read_watchlist(
+async def read_watchlist(
     db: Session = Depends(deps.get_db),
     skip: int = 0,
     limit: int = 100,

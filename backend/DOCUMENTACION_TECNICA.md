@@ -1,8 +1,8 @@
 # Manual Técnico de Referencia - Sistema CONMAQ
 
-**Versión del Documento:** 1.5
-**Fecha de Última Actualización:** 30 de Noviembre de 2025
-**Estado:** Fase 4 (Calidad y Estabilización)
+**Versión del Documento:** 1.7
+**Fecha de Última Actualización:** 2 de Diciembre de 2025
+**Estado:** Fase 6 (Seguridad y Control)
 
 ---
 
@@ -17,6 +17,8 @@
 8. [Seguridad e Inyección de Dependencias](#8-seguridad-e-inyección-de-dependencias)
 9. [Utilidades de Negocio](#9-utilidades-de-negocio)
 10. [Testing y Despliegue](#10-testing-y-despliegue)
+11. [Calidad de Código y CI/CD](#11-calidad-de-código-y-ci-cd)
+12. [Despliegue y Observabilidad](#12-despliegue-y-observabilidad)
 
 ---
 
@@ -64,12 +66,17 @@ Esta clase singleton almacena toda la configuración de la aplicación.
 | `SECRET_KEY` | `str` | Clave criptográfica para firmar JWTs. **CRÍTICO**. | "changethis..." (Dev) |
 | `ALGORITHM` | `str` | Algoritmo de firma para JWT. | "HS256" |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `int` | Tiempo de vida del token en minutos. | 30 |
+| `REDIS_URL` | `str` | URI de conexión a Redis (Broker/Cache). | "redis://redis:6379/0" |
+| `ENV` | `str` | Entorno de ejecución (`development`, `production`). | "development" |
+| `BACKEND_CORS_ORIGINS` | `List[str]` | Lista de orígenes permitidos para CORS. | `["http://localhost", ...]` |
 
 **Métodos:**
 
 - **`__init__(self, **kwargs)`**:
     - **Propósito:** Constructor que inicializa la configuración.
-    - **Lógica:** Si `DATABASE_URL` no se provee explícitamente en el entorno, la construye dinámicamente concatenando `postgresql://` + usuario + password + servidor + db.
+    - **Lógica:** 
+        1. Si `DATABASE_URL` no se provee, la construye dinámicamente.
+        2. **Validación de Seguridad:** Si `ENV` es "production" y `SECRET_KEY` es el valor por defecto, lanza un error fatal para prevenir despliegues inseguros.
 
 ---
 
@@ -125,12 +132,19 @@ def get_password_hash(password: str) -> str
 ---
 
 ## 5. Capa de Datos (Modelos y DB)
-
 ### Archivo: `app/db/session.py`
 
 - **`engine`**: Instancia de `sqlalchemy.create_engine`. Maneja el pool de conexiones a PostgreSQL. Configurado con `pool_pre_ping=True` para evitar errores de desconexión.
 - **`SessionLocal`**: Fábrica de sesiones (`sessionmaker`). Cada request HTTP instanciará una sesión propia usando esta fábrica. Configuración: `autocommit=False`, `autoflush=False`.
 
+### Optimización de Base de Datos (Índices)
+Se han añadido índices compuestos para optimizar las consultas más frecuentes y pesadas.
+
+- **`ix_availabilityslot_machine_time`**: (`machine_id`, `start_time`, `end_time`). Acelera drásticamente la búsqueda de disponibilidad en calendarios.
+- **`ix_booking_status`**: (`status`). Optimiza filtros de reservas y métricas de ingresos pendientes.
+- **`ix_transaction_status`**: (`status`). Optimiza el cálculo de ingresos totales.
+
+### Archivo: `app/models/user.py`
 ### Archivo: `app/models/user.py`
 
 #### Clase `User` (Hereda de `Base`)
@@ -462,10 +476,29 @@ Implementado con `slowapi` para proteger la API.
     - Ofertas: 10/minuto.
 - **Respuesta:** `429 Too Many Requests`.
 
-### CORS y Trusted Host
-Configurados en `app/main.py`.
-- **CORS:** Permite orígenes `localhost`, `localhost:3000`.
-- **Trusted Host:** Protege contra ataques de Host Header.
+### Endurecimiento de Seguridad (Hardening)
+
+#### Middleware de Headers de Seguridad
+**Archivo:** `app/core/security_headers.py`
+Se inyectan cabeceras HTTP en todas las respuestas para mitigar ataques comunes:
+- `X-Content-Type-Options: nosniff`: Previene MIME-sniffing.
+- `X-Frame-Options: DENY`: Previene Clickjacking (no permite iframes).
+- `X-XSS-Protection: 1; mode=block`: Activa filtro XSS del navegador.
+
+#### Middleware de Auditoría (Logging)
+**Archivo:** `app/core/logging_middleware.py`
+Registra cada petición HTTP con detalles críticos para auditoría forense:
+- IP del cliente.
+- Método y Path.
+- Código de estado.
+- Latencia (ms).
+- Timestamp.
+
+#### Configuración Estricta de CORS
+Configurados en `app/main.py` usando `settings.BACKEND_CORS_ORIGINS`.
+- **Orígenes:** Restringidos a la lista blanca definida en configuración.
+- **Métodos:** Solo permite `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`.
+- **Headers:** Permite todos (`*`) para compatibilidad, pero se recomienda restringir en producción.
 
 ---
 
@@ -525,14 +558,27 @@ Motor central de subastas. Implementa la lógica de Proxy Bidding y Soft Close.
         - Esto previene el "sniping" (ofertas de último segundo) y permite una competencia justa.
 
 ### Archivo: `app/services/notifications.py`
+### Archivo: `app/services/payment.py`
 
-#### Función: `send_notification`
-Servicio central de mensajería.
-- **Parámetros:** `db`, `user_id`, `type`, `title`, `message`, `payload`.
-- **Lógica:**
-    1. Crea un registro persistente en la tabla `Notification`.
-    2. (Simulación) Imprime en consola el contenido del mensaje, representando el envío de un Email o Push Notification.
+#### Clase: `PaymentService`
+Abstracción para pasarelas de pago.
+- **`create_payment_intent`**: Prepara la transacción y comunica con el proveedor (Stripe Mock).
+- **`confirm_payment`**: Maneja la lógica post-pago (actualización de estados cruzados Booking/Transaction).
 
+### Archivo: `app/services/tasks.py` (Celery Workers)
+Gestión de tareas en segundo plano para no bloquear el hilo principal de la API.
+
+- **`send_notification_task`**: Envoltura asíncrona para el envío de notificaciones.
+- **Configuración**: `app/services/celery_app.py` define la conexión con Redis como Broker.
+
+### Archivo: `app/core/cache.py` (Redis Cache)
+Sistema de caché para reducir la carga en la base de datos en endpoints de lectura intensiva.
+
+- **`get_cache(key)`**: Recupera datos serializados.
+- **`set_cache(key, value, ttl)`**: Almacena datos con tiempo de vida (TTL).
+- **Uso Actual**: Listado de máquinas (60s), Métricas financieras (300s).
+
+---
 ### Archivo: `app/services/payment.py`
 
 #### Clase: `PaymentService`
@@ -551,11 +597,23 @@ El proyecto utiliza un sistema de dependencias de dos niveles para garantizar re
 - **`requirements-dev.in`**: Herramientas de desarrollo y testing.
 - **`requirements.txt`**: Archivo generado (lock file) con versiones exactas para producción.
 - **`requirements-dev.txt`**: Archivo generado para entorno de desarrollo.
+# Ejecutar con reporte de cobertura
+pytest --cov=app --cov-report=term-missing
+```
 
-**Instalación:**
-```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+### Pruebas de Carga (Locust)
+Para validar el rendimiento bajo concurrencia, se utiliza Locust.
+
+- **Archivo:** `locustfile.py`.
+- **Escenarios:** Listado de máquinas, verificación de disponibilidad.
+- **Ejecución:**
+  ```bash
+  pip install locust
+  locust -f locustfile.py
+  ```
+  Acceder a `http://localhost:8089` para iniciar la prueba.
+
+### Migraciones de Base de Datos (Alembic)
 ```
 
 ### Pruebas Automatizadas (Pytest)
@@ -623,12 +681,13 @@ Se utilizan herramientas estándar de la industria configuradas en `pyproject.to
 # Formatear
 black app
 isort app
+**Comando de Despliegue:**
+```bash
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+Este comando levanta tanto el servidor web (`web`) como los procesos en segundo plano (`worker`).
 
-# Linting
-ruff check app
-
-# Type Checking
-mypy app
+### Observabilidad
 ```
 
 ### Integración Continua (GitHub Actions)
@@ -640,8 +699,62 @@ El flujo de trabajo `.github/workflows/backend-ci.yml` se ejecuta en cada `push`
 3.  **Format Check**: Verifica que el código cumpla con Black e Isort.
 4.  **Type Check**: Ejecuta Mypy.
 5.  **Test**: Ejecuta la suite de Pytest con reporte de cobertura.
+6.  **Build**: Construye la imagen Docker para asegurar que el empaquetado es correcto.
+
+### Escaneo de Seguridad Automatizado
+Se ha añadido un workflow específico `.github/workflows/security.yml` para análisis de vulnerabilidades.
+
+- **Bandit (SAST):** Analiza el código fuente en busca de patrones inseguros (ej. uso de `eval`, `assert`, cifrado débil).
+- **Pip-audit (SCA):** Verifica si las dependencias instaladas tienen vulnerabilidades conocidas (CVEs).
 
 Si algún paso falla, el commit es rechazado.
+
+## 12. Despliegue y Observabilidad
+
+### Despliegue en Producción
+Para entornos productivos, se utiliza una configuración optimizada que prioriza la estabilidad y el rendimiento sobre la facilidad de depuración.
+
+**Archivo:** `docker-compose.prod.yml`
+
+**Diferencias con Desarrollo:**
+- **Servidor WSGI/ASGI:** Utiliza `gunicorn` con workers `uvicorn` en lugar de `uvicorn --reload`.
+- **Reinicio Automático:** Política `restart: always`.
+- **Variables de Entorno:** No incluye valores por defecto inseguros; espera un archivo `.env` o variables del sistema.
+
+**Comando de Despliegue:**
+```bash
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+### Despliegue Seguro (TLS/SSL)
+Para producción, **NUNCA** se debe exponer Uvicorn/Gunicorn directamente a internet. Se debe utilizar un Reverse Proxy para la terminación TLS.
+
+**Archivo de Referencia:** `nginx.conf.example`
+
+**Configuración Recomendada (Nginx):**
+1.  **Redirección HTTP -> HTTPS:** Forzar todo el tráfico a puerto 443.
+2.  **TLS 1.2/1.3:** Deshabilitar protocolos obsoletos (SSLv3, TLS 1.0/1.1).
+3.  **HSTS:** Habilitar `Strict-Transport-Security` para prevenir downgrade attacks.
+4.  **Proxy Pass:** Reenviar tráfico a `http://web:8000` inyectando headers `X-Forwarded-For` y `X-Forwarded-Proto`.
+
+### Observabilidad
+
+#### Logs Estructurados
+El sistema emite logs en formato JSON para facilitar su ingestión por sistemas de agregación (ELK, Datadog, CloudWatch).
+
+- **Configuración:** `app/core/logging_config.py`.
+- **Formato:**
+  ```json
+  {"timestamp": "...", "level": "INFO", "message": "...", "module": "..."}
+  ```
+
+#### Métricas (Prometheus)
+La aplicación expone métricas de rendimiento en tiempo real compatibles con Prometheus.
+
+- **Endpoint:** `/metrics` (GET).
+- **Librería:** `prometheus_client`.
+- **Métricas Clave:**
+    - `conmaq_requests_total`: Contador de peticiones HTTP (etiquetas: method, path, status).
 
 ---
 *Fin del Manual Técnico de Referencia*

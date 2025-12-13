@@ -12,11 +12,13 @@ from app.utils.scheduler import generate_slots_for_machine
 from datetime import datetime
 
 from app.services import machine as machine_service
+from app.core.cache import get_cache, set_cache
+from fastapi.encoders import jsonable_encoder
 
 router = APIRouter()
 
 @router.get("/", response_model=List[MachineSchema])
-def read_machines(
+async def read_machines(
     db: Session = Depends(deps.get_db),
     skip: int = 0,
     limit: int = 100,
@@ -26,7 +28,15 @@ def read_machines(
     """
     Retrieve machines.
     """
-    return machine_service.get_machines(db, skip, limit, status, serial_number)
+    cache_key = f"machines:{skip}:{limit}:{status}:{serial_number}"
+    cached_data = get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
+    machines = machine_service.get_machines(db, skip, limit, status, serial_number)
+    data = jsonable_encoder(machines)
+    set_cache(cache_key, data, ttl=60)
+    return machines
 
 @router.post("/", response_model=MachineSchema)
 def create_machine(
@@ -41,7 +51,7 @@ def create_machine(
     return machine_service.create_machine(db, machine_in)
 
 @router.get("/{id}", response_model=MachineSchema)
-def read_machine(
+async def read_machine(
     *,
     db: Session = Depends(deps.get_db),
     id: int,
@@ -107,7 +117,7 @@ def generate_machine_availability(
     return {"message": f"Generated {slots_count} slots for machine {id}"}
 
 @router.get("/{id}/availability", response_model=List[AvailabilitySlotSchema])
-def read_machine_availability(
+async def read_machine_availability(
     *,
     db: Session = Depends(deps.get_db),
     id: int,

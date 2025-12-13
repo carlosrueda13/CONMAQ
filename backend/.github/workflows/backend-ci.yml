@@ -42,3 +42,13 @@ jobs:
     - name: Run tests with pytest
       run: |
         pytest --cov=app --cov-report=xml
+
+  build:
+    needs: test-backend
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      run: |
+        docker build -t conmaq-backend:ci .

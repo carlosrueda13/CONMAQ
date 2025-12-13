@@ -18,6 +18,18 @@ services:
       - db
       - redis
 
+  worker:
+    build: .
+    command: celery -A app.services.celery_app worker --loglevel=INFO
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/agendamiento
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
   db:
     image: postgres:15-alpine
     volumes:
