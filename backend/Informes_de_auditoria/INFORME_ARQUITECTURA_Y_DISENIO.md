@@ -216,7 +216,7 @@ No se alcanza aún un **10/10** porque:
 ---
 
 ## 3. Plan detallado de mejoras y correcciones  
-*(Estilo “manual de LEGO”: pasos concretos, en orden sugerido)*
+*(Estilo “paso a paso”: instrucciones concretas, en orden sugerido)*
 
 ### 3.1. Objetivos del plan
 
@@ -232,7 +232,7 @@ No se alcanza aún un **10/10** porque:
 
 **Objetivo:** Crear un lugar claro para la lógica de negocio, separándola de los controladores FastAPI y del ORM.
 
-**Pasos (LEGO):**
+**Pasos detallados:**
 
 1. **Crear un nuevo paquete `app/services`**
 

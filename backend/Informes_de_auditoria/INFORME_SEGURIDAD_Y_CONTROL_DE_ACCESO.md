@@ -328,7 +328,7 @@ Actualmente, eso está en intención (PRD), pero no en configuración.
 ---
 
 ## 3. Plan detallado de mejoras y correcciones  
-*(Estilo manual de LEGO – pasos concretos y aplicables sobre este repo)*
+*(Estilo paso a paso – instrucciones concretas y aplicables sobre este repo)*
 
 ### 3.1. Objetivo global
 

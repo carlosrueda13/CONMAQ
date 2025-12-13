@@ -263,10 +263,10 @@ Esto significa que:
 
 ---
 
-## 3. Plan detallado de mejoras y correcciones  
-*(Muy detallado – estilo manual LEGO, paso a paso)*
+### 3. Plan detallado de mejoras y correcciones  
+*(Muy detallado – paso a paso)*
 
-### 3.1. Objetivos del plan
+### 3.1. Objetivo global
 
 1. Pasar de **6/10** a **7–8/10** en Rendimiento y Escalabilidad.
 2. Hacerlo **incrementalmente**, sin romper el MVP.
@@ -385,7 +385,7 @@ Esto significa que:
 
 **Objetivo:** Sacar del request/response tareas que pueden bloquear bajo carga (envío de notificaciones, procesos de subasta, generación de métricas pesadas).
 
-**Pasos “LEGO”:**
+**Pasos detallados:**
 
 1. **Definir un servicio `worker` en `docker-compose.yml`**
 

@@ -316,7 +316,7 @@ Impacto:
 ---
 
 ## 3. Plan detallado de mejoras y correcciones  
-*(Muy detallado, estilo LEGO – pasos accionables sobre este repo)*
+*(Muy detallado, paso a paso – instrucciones accionables sobre este repo)*
 
 ### 3.1. Objetivo global
 

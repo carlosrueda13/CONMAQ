@@ -212,7 +212,7 @@ La falta de CI para calidad y tests reduce la **confiabilidad** de la base de c�
 ---
 
 ## 3. Plan detallado de mejoras y correcciones  
-*(Estilo manual de LEGO, paso a paso)*
+*(Estilo paso a paso)*
 
 ### 3.1. Objetivo general del plan
 
@@ -562,7 +562,7 @@ La falta de CI para calidad y tests reduce la **confiabilidad** de la base de c�
 
 **Objetivo:** Cubrir primero la lógica de mayor riesgo de negocio.
 
-**Pasos “estilo LEGO”:**
+**Pasos detallados:**
 
 1. **Identificar funciones/módulos de lógica crítica**
 
