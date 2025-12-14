@@ -35,32 +35,98 @@ def seed_users(db: Session, count: int = 20) -> list[User]:
     db.commit()
     return users
 
-def seed_machines(db: Session, count: int = 50) -> list[Machine]:
-    machines = []
-    logger.info(f"Seeding {count} machines...")
-    machine_types = ["Excavator", "Bulldozer", "Crane", "Forklift", "Loader"]
-    brands = ["CAT", "Komatsu", "Volvo", "Hitachi", "JCB"]
+def seed_machines(db: Session, count: int = 5) -> list[Machine]:
+    logger.info("Seeding 5 specific machines...")
     
-    for _ in range(count):
-        m_type = random.choice(machine_types)
-        brand = random.choice(brands)
-        name = f"{brand} {m_type} {fake.bothify(text='??-###')}"
-        
-        machine = Machine(
-            name=name,
-            serial_number=fake.unique.bothify(text='SN-########'),
-            specs={
-                "year": random.randint(2015, 2023),
-                "power": f"{random.randint(100, 500)} HP",
-                "weight": f"{random.randint(5000, 20000)} kg"
-            },
-            price_base_per_hour=round(random.uniform(50.0, 500.0), 2),
-            location_lat=float(fake.latitude()),
-            location_lng=float(fake.longitude()),
-            status="available"
-        )
+    machines_data = [
+        {
+            "name": "Excavadora CAT 320",
+            "serial_number": "CAT320-001",
+            "description": "Excavadora de alto rendimiento para construcción pesada.",
+            "specs": {"weight": "22t", "power": "150hp", "year": 2022},
+            "price_base_per_hour": 150.0,
+            "location_lat": 4.6097,
+            "location_lng": -74.0817,
+            "address": "Bogotá, Colombia",
+            "photos": ["https://s7d2.scene7.com/is/image/Caterpillar/CM20200916-5d866-02639"],
+            "status": "active",
+            "min_hours": 4,
+            "capacity_m3h": 120.0,
+            "fuel_type": "Diesel",
+            "tank_capacity": 300.0
+        },
+        {
+            "name": "Retroexcavadora JCB 3CX",
+            "serial_number": "JCB3CX-002",
+            "description": None,
+            "specs": None,
+            "price_base_per_hour": 120.0,
+            "location_lat": None,
+            "location_lng": None,
+            "address": None,
+            "photos": None,
+            "status": "active",
+            "min_hours": 1,
+            "capacity_m3h": None,
+            "fuel_type": None,
+            "tank_capacity": None
+        },
+        {
+            "name": "Grúa Torre Liebherr",
+            "serial_number": "LIEB-003",
+            "description": "Grúa torre para edificación vertical.",
+            "specs": {"max_load": "5t"},
+            "price_base_per_hour": 300.0,
+            "location_lat": 6.2442,
+            "location_lng": -75.5812,
+            "address": "Medellín, Antioquia",
+            "photos": [],
+            "status": "maintenance",
+            "min_hours": 8,
+            "capacity_m3h": None,
+            "fuel_type": "Electric",
+            "tank_capacity": None
+        },
+        {
+            "name": "Rodillo Compactador Dynapac",
+            "serial_number": "DYN-004",
+            "description": "Rodillo vibratorio.",
+            "specs": {"weight": "10t"},
+            "price_base_per_hour": 90.0,
+            "location_lat": None,
+            "location_lng": None,
+            "address": None,
+            "photos": None,
+            "status": "active",
+            "min_hours": 2,
+            "capacity_m3h": None,
+            "fuel_type": "Diesel",
+            "tank_capacity": 150.0
+        },
+        {
+            "name": "Cargador Frontal Komatsu",
+            "serial_number": "KOM-005",
+            "description": "Cargador frontal WA380.",
+            "specs": {"bucket_capacity": "3.5m3"},
+            "price_base_per_hour": 180.0,
+            "location_lat": 3.4516,
+            "location_lng": -76.5320,
+            "address": "Cali, Valle del Cauca",
+            "photos": None,
+            "status": "inactive",
+            "min_hours": 4,
+            "capacity_m3h": 200.0,
+            "fuel_type": "Diesel",
+            "tank_capacity": 250.0
+        }
+    ]
+    
+    machines = []
+    for m_data in machines_data:
+        machine = Machine(**m_data)
         db.add(machine)
         machines.append(machine)
+    
     db.commit()
     return machines
 
@@ -73,7 +139,7 @@ def seed_data(db: Session) -> None:
     
     # 3. Availability Slots (Next 30 days)
     logger.info("Generating availability slots...")
-    start_date = datetime.now(timezone.utc).date()
+    start_date = datetime.now(timezone.utc)
     for machine in machines:
         # Generate slots for a random subset of machines to save time/space if needed, 
         # but for 50 machines it's fine to do all.
@@ -138,7 +204,7 @@ def seed_data(db: Session) -> None:
                 
                 # Add transaction
                 txn = Transaction(
-                    booking_id=booking.id, # ID won't be available until flush, but let's rely on commit later or flush now
+                    booking=booking,
                     amount=current_price,
                     status="completed",
                     provider_transaction_id=fake.uuid4(),

@@ -1,9 +1,9 @@
 # Manual Técnico de Referencia - Frontend CONMAQ
 
-**Versión del Documento:** 1.1 (Revisión Post-Corrección Día 1)
-**Fecha de Actualización:** 30 de Noviembre de 2025
+**Versión del Documento:** 1.2
+**Fecha de Última Actualización:** 14 de Diciembre de 2025
 **Tecnología:** Flutter (Dart)
-**Estado:** Fase 1 (Inicialización, Arquitectura y Autenticación)
+**Estado:** Fase 2 (Catálogo y Navegación)
 
 ---
 
@@ -14,8 +14,9 @@
 4. [Módulo Core (Núcleo)](#4-módulo-core-núcleo)
 5. [Gestión de Dependencias](#5-gestión-de-dependencias)
 6. [Estructura de Directorios](#6-estructura-de-directorios)
-7. [Módulo de Autenticación (Detalle de Implementación)](#7-módulo-de-autenticación-detalle-de-implementación)
-8. [Consideraciones de Desarrollo y Linter](#8-consideraciones-de-desarrollo-y-linter)
+7. [Módulo de Autenticación](#7-módulo-de-autenticación)
+8. [Módulo de Catálogo y Navegación](#8-módulo-de-catálogo-y-navegación)
+9. [Consideraciones de Desarrollo y Linter](#9-consideraciones-de-desarrollo-y-linter)
 
 ---
 
@@ -101,6 +102,7 @@ Se utiliza el paquete **Dio** en lugar del `http` estándar por sus capacidades 
 - **Interceptors:**
     - **Logging:** En modo `kDebugMode`, imprime en consola cada Request (Método, Path, Headers, Body) y cada Response/Error. Esto facilita enormemente la depuración sin exponer datos sensibles en producción.
     - **Manejo de Errores:** (En desarrollo) Interceptará códigos 401 para cerrar sesión automáticamente.
+    - **Autenticación:** Inyecta automáticamente el token JWT en el header `Authorization` si existe en el almacenamiento seguro.
 
 ---
 
@@ -158,7 +160,7 @@ frontend/
 
 ---
 
-## 7. Módulo de Autenticación (Detalle de Implementación)
+## 7. Módulo de Autenticación
 
 Este módulo gestiona la identidad del usuario y la seguridad de la sesión. Fue implementado siguiendo estrictamente Clean Architecture.
 
@@ -190,7 +192,6 @@ Para garantizar que todas las peticiones autenticadas funcionen, se implementó 
     2.  Si existe un token válido, lo inyecta en el encabezado HTTP:
         `Authorization: Bearer <token>`
     3.  Si no hay token, la petición se envía sin credenciales (útil para el endpoint de login).
-- **Inyección de Dependencias:** `DioClient` ahora depende de `StorageService`, lo cual se refleja en el grafo de proveedores de Riverpod (`auth_provider.dart`).
 
 ### 7.3. Gestión de Estado (`AuthNotifier`)
 El estado de autenticación se modela como una clase `AuthState` con las siguientes propiedades:
@@ -214,27 +215,72 @@ La pantalla de Login (`lib/presentation/screens/login_screen.dart`) implementa u
 
 ---
 
-## 8. Consideraciones de Desarrollo y Linter
+## 8. Módulo de Catálogo y Navegación
+
+Este módulo implementa la visualización, búsqueda y navegación del inventario de maquinaria disponible para alquiler.
+
+### 8.1. Arquitectura del Módulo
+
+#### A. Capa de Datos
+- **Modelo `Machine` (`lib/data/models/machine/machine.dart`):**
+  - Clase inmutable generada con `freezed`.
+  - Mapea la respuesta JSON del backend.
+  - Campos principales: `id`, `name`, `description`, `priceBasePerHour`, `status`, `imageUrl`.
+- **DataSource (`lib/data/datasources/machine_datasource.dart`):**
+  - Método `getMachines({String? search, String? status})`.
+  - Realiza peticiones GET a `/machines`.
+  - Maneja parámetros de consulta (query parameters) para filtrado.
+
+#### B. Capa de Dominio
+- **Repositorio (`lib/domain/repositories_interfaces/machine_repository.dart`):**
+  - Define el contrato `Future<List<Machine>> getMachines(...)`.
+  - Permite cambiar la implementación de datos sin afectar la UI.
+
+#### C. Capa de Presentación
+- **Provider (`lib/presentation/providers/machines_provider.dart`):**
+  - `machinesProvider`: StateNotifier que expone `AsyncValue<List<Machine>>`.
+  - Maneja estados de carga, error y datos.
+  - Permite recargar la lista mediante `loadMachines()`.
+- **UI (`lib/presentation/screens/home_screen.dart`):**
+  - Utiliza `CustomScrollView` y `SliverGrid` para un rendimiento óptimo con listas largas.
+  - Implementa `SliverAppBar` con barra de búsqueda integrada.
+  - **`MachineCard`**: Widget con diseño "Liquid Glass" que muestra la imagen y detalles de la máquina.
+
+### 8.2. Componentes Visuales Clave
+- **MachineCard:**
+  - Uso de `CachedNetworkImage` para gestión eficiente de memoria y caché de imágenes.
+  - Diseño de tarjeta con bordes redondeados y sombra suave.
+  - Indicador de estado (Disponible/Ocupado) con código de colores.
+
+### 8.3. Navegación (`AppRouter`)
+Ubicación: `lib/config/router/app_router.dart`
+
+Se utiliza `GoRouter` para la gestión de rutas declarativas.
+- **`/home`**: Ruta principal que carga `HomeScreen`.
+- **`/machine/:id`**: Ruta dinámica para el detalle de la máquina (paramétrico).
+- **Redirección:** Integrada con `AuthNotifier` para proteger rutas privadas.
+
+---
+
+## 9. Consideraciones de Desarrollo y Linter
 
 Esta sección documenta las excepciones y reglas específicas aplicadas para garantizar la calidad del código y la compatibilidad entre librerías.
 
-### 8.1. Compatibilidad Freezed vs Linter
+### 9.1. Compatibilidad Freezed vs Linter
 **Problema:** La librería `freezed` utiliza anotaciones `@JsonKey` en los constructores de fábrica (`factory constructors`), mientras que el linter de Dart estándar espera que estas anotaciones estén en los campos de la clase. Esto genera advertencias de tipo `invalid_annotation_target`.
 
 **Solución:** Se ha configurado la supresión explícita de esta regla en los archivos generados por Freezed.
 - **Archivos Afectados:** `lib/data/models/auth/token_response.dart`, `lib/data/models/auth/user.dart`.
 - **Implementación:** Se añade `// ignore_for_file: invalid_annotation_target` al inicio de cada archivo de modelo.
 
-### 8.2. Interpolación de Cadenas
+### 9.2. Interpolación de Cadenas
 **Regla:** Se debe preferir siempre la interpolación de cadenas (`'${variable}texto'`) sobre la concatenación con el operador `+`.
 - **Motivo:** Mejora la legibilidad y el rendimiento en Dart.
 - **Ejemplo Correcto:** `_dioClient.dio.get('${ApiConstants.usersEndpoint}me')`.
 
-### 8.3. Punto de Entrada (`main.dart`)
+### 9.3. Punto de Entrada (`main.dart`)
 El archivo `main.dart` ha sido limpiado de todo código boilerplate (contador por defecto). Su única responsabilidad es:
 1.  Inicializar el `ProviderScope` de Riverpod.
 2.  Lanzar `MyApp`.
 3.  Configurar `MaterialApp.router` con el tema y las rutas definidas.
 
----
-*Fin del Manual Técnico*
