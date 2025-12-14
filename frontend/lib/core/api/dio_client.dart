@@ -1,11 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
+import '../utils/storage_service.dart';
 
 class DioClient {
   late final Dio _dio;
+  final StorageService _storageService;
 
-  DioClient() {
+  DioClient(this._storageService) {
     _dio = Dio(
       BaseOptions(
         baseUrl: ApiConstants.baseUrl,
@@ -17,18 +19,35 @@ class DioClient {
 
     _dio.interceptors.add(
       InterceptorsWrapper(
-        onRequest: (options, handler) {
+        onRequest: (options, handler) async {
+          // Auth Interceptor: Inject Token
+          final token = await _storageService.getToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+
           if (kDebugMode) {
-            print('🌐 REQUEST[${options.method}] => PATH: ${options.path}');
+            print('REQUEST[${options.method}] => PATH: ${options.path}');
             print('Headers: ${options.headers}');
-            print('Data: ${options.data}');
+
+            // Sanitize sensitive data before printing
+            final data = options.data;
+            if (data is Map<String, dynamic>) {
+              final sanitizedData = Map<String, dynamic>.from(data);
+              if (sanitizedData.containsKey('password')) {
+                sanitizedData['password'] = '*****';
+              }
+              print('Data: $sanitizedData');
+            } else {
+              print('Data: $data');
+            }
           }
           return handler.next(options);
         },
         onResponse: (response, handler) {
           if (kDebugMode) {
             print(
-              '✅ RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
+              'RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
             );
           }
           return handler.next(response);
@@ -36,7 +55,7 @@ class DioClient {
         onError: (DioException err, handler) {
           if (kDebugMode) {
             print(
-              '❌ ERROR[${err.response?.statusCode}] => PATH: ${err.requestOptions.path}',
+              'ERROR[${err.response?.statusCode}] => PATH: ${err.requestOptions.path}',
             );
             print('Message: ${err.message}');
           }

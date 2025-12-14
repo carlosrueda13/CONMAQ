@@ -1,9 +1,9 @@
 # Manual Técnico de Referencia - Frontend CONMAQ
 
-**Versión del Documento:** 1.0
-**Fecha de Creación:** 30 de Noviembre de 2025
+**Versión del Documento:** 1.1 (Revisión Post-Corrección Día 1)
+**Fecha de Actualización:** 30 de Noviembre de 2025
 **Tecnología:** Flutter (Dart)
-**Estado:** Fase 1 (Inicialización y Arquitectura)
+**Estado:** Fase 1 (Inicialización, Arquitectura y Autenticación)
 
 ---
 
@@ -14,6 +14,8 @@
 4. [Módulo Core (Núcleo)](#4-módulo-core-núcleo)
 5. [Gestión de Dependencias](#5-gestión-de-dependencias)
 6. [Estructura de Directorios](#6-estructura-de-directorios)
+7. [Módulo de Autenticación (Detalle de Implementación)](#7-módulo-de-autenticación-detalle-de-implementación)
+8. [Consideraciones de Desarrollo y Linter](#8-consideraciones-de-desarrollo-y-linter)
 
 ---
 
@@ -153,6 +155,86 @@ frontend/
 ├── pubspec.yaml                # Dependencias
 └── analysis_options.yaml       # Reglas de Linter
 ```
+
+---
+
+## 7. Módulo de Autenticación (Detalle de Implementación)
+
+Este módulo gestiona la identidad del usuario y la seguridad de la sesión. Fue implementado siguiendo estrictamente Clean Architecture.
+
+### 7.1. Flujo de Datos
+1.  **UI (`LoginScreen`):** Captura email y password. Invoca `ref.read(authProvider.notifier).login()`.
+2.  **Provider (`AuthNotifier`):** Cambia estado a `checking`. Llama a `AuthRepository.login()`.
+3.  **Repository (`AuthRepositoryImpl`):**
+    - Llama a `AuthDataSource.login()` para obtener el token.
+    - Guarda el token usando `StorageService`.
+    - Llama a `AuthDataSource.getUserMe()` para obtener datos del usuario.
+    - Retorna una entidad `User` o lanza una excepción.
+4.  **DataSource (`AuthDataSource`):** Realiza peticiones HTTP (`POST /login/access-token`, `GET /users/me`) usando `Dio`.
+
+### 7.2. Seguridad (Token JWT e Interceptores)
+La seguridad se maneja en dos frentes: persistencia segura e inyección automática de credenciales.
+
+#### A. Persistencia (`StorageService`)
+- **Herramienta:** `flutter_secure_storage`.
+- **Mecanismo:**
+    - **iOS:** Keychain.
+    - **Android:** Keystore (AES encryption).
+- **Ciclo de Vida:** El token se guarda tras un login exitoso y se elimina al cerrar sesión.
+
+#### B. Inyección de Token (`DioClient`)
+Para garantizar que todas las peticiones autenticadas funcionen, se implementó un **Interceptor de Autenticación** en el cliente HTTP centralizado.
+- **Ubicación:** `lib/core/api/dio_client.dart`.
+- **Funcionamiento:**
+    1.  Antes de enviar cualquier petición (`onRequest`), el interceptor consulta asíncronamente el `StorageService`.
+    2.  Si existe un token válido, lo inyecta en el encabezado HTTP:
+        `Authorization: Bearer <token>`
+    3.  Si no hay token, la petición se envía sin credenciales (útil para el endpoint de login).
+- **Inyección de Dependencias:** `DioClient` ahora depende de `StorageService`, lo cual se refleja en el grafo de proveedores de Riverpod (`auth_provider.dart`).
+
+### 7.3. Gestión de Estado (`AuthNotifier`)
+El estado de autenticación se modela como una clase `AuthState` con las siguientes propiedades:
+- `authStatus`: Enum (`checking`, `authenticated`, `unauthenticated`).
+- `user`: Objeto `User` (nullable).
+- `errorMessage`: String para feedback de errores (nullable).
+
+**Lógica de Redirección:**
+El `AppRouter` (GoRouter) escucha los cambios en este provider.
+- Si `authStatus == checking` -> Muestra `SplashScreen`.
+- Si `authStatus == unauthenticated` -> Redirige a `/login`.
+- Si `authStatus == authenticated` -> Redirige a `/home`.
+
+### 7.4. Componentes de UI (Liquid Glass Login)
+La pantalla de Login (`lib/presentation/screens/login_screen.dart`) implementa un diseño avanzado:
+- **Fondo:** Gradiente lineal (`primaryColor` a `primaryColor` oscuro).
+- **Efecto Glass:** Contenedor central con `BackdropFilter` (blur 10x) y color blanco con opacidad 0.1.
+- **Feedback:**
+    - `CircularProgressIndicator` dentro del botón de login durante la carga.
+    - `ScaffoldMessenger` para mostrar errores de autenticación (ej. "Credenciales incorrectas").
+
+---
+
+## 8. Consideraciones de Desarrollo y Linter
+
+Esta sección documenta las excepciones y reglas específicas aplicadas para garantizar la calidad del código y la compatibilidad entre librerías.
+
+### 8.1. Compatibilidad Freezed vs Linter
+**Problema:** La librería `freezed` utiliza anotaciones `@JsonKey` en los constructores de fábrica (`factory constructors`), mientras que el linter de Dart estándar espera que estas anotaciones estén en los campos de la clase. Esto genera advertencias de tipo `invalid_annotation_target`.
+
+**Solución:** Se ha configurado la supresión explícita de esta regla en los archivos generados por Freezed.
+- **Archivos Afectados:** `lib/data/models/auth/token_response.dart`, `lib/data/models/auth/user.dart`.
+- **Implementación:** Se añade `// ignore_for_file: invalid_annotation_target` al inicio de cada archivo de modelo.
+
+### 8.2. Interpolación de Cadenas
+**Regla:** Se debe preferir siempre la interpolación de cadenas (`'${variable}texto'`) sobre la concatenación con el operador `+`.
+- **Motivo:** Mejora la legibilidad y el rendimiento en Dart.
+- **Ejemplo Correcto:** `_dioClient.dio.get('${ApiConstants.usersEndpoint}me')`.
+
+### 8.3. Punto de Entrada (`main.dart`)
+El archivo `main.dart` ha sido limpiado de todo código boilerplate (contador por defecto). Su única responsabilidad es:
+1.  Inicializar el `ProviderScope` de Riverpod.
+2.  Lanzar `MyApp`.
+3.  Configurar `MaterialApp.router` con el tema y las rutas definidas.
 
 ---
 *Fin del Manual Técnico*
