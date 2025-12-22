@@ -1,209 +1,137 @@
 # Plan de Desarrollo Frontend - CONMAQ (4 Días)
 
 **Rol:** Lead Frontend Developer (Flutter/Dart)
-**Objetivo:** Construir una aplicación móvil/web completa, integrada con el backend FastAPI, siguiendo arquitectura limpia y diseño "Liquid Glass".
+**Objetivo:** Construir una aplicación móvil/web completa, integrada con el backend FastAPI, siguiendo arquitectura limpia y diseño "Liquid Glass", con soporte multi-rol (Cliente, Operador, Admin).
 **Fecha de Inicio:** Día 1
 **Fecha de Entrega:** Día 4 (Final del día)
 
 ---
 
-## DÍA 1: Cimientos, Arquitectura y Seguridad
+## DÍA 1: Cimientos, Arquitectura y Seguridad (Completado)
 
 ### Mañana: Configuración del Entorno y Arquitectura Base
-
-**Objetivo:** Establecer una base sólida de código que soporte escalabilidad y mantenibilidad.
-
-1.  **Inicialización del Proyecto:**
-    *   Ejecutar: `flutter create --org com.conmaq --platforms ios,android,web frontend`
-    *   Configurar `.gitignore` estándar para Flutter.
-
-2.  **Gestión de Dependencias (`pubspec.yaml`):**
-    *   **Core:** `flutter_riverpod` (Estado), `go_router` (Navegación), `dio` (HTTP), `get_it` (Inyección dependencias).
-    *   **Data:** `freezed_annotation`, `json_annotation`, `flutter_secure_storage` (Tokens), `shared_preferences`.
-    *   **UI:** `google_fonts`, `flutter_svg`, `cached_network_image`, `glassmorphism` (o implementación manual).
-    *   **Dev:** `build_runner`, `freezed`, `json_serializable`.
-
-3.  **Estructura de Carpetas (Clean Architecture):**
-    *   Crear en `lib/`:
-        *   `config/` (theme, router, constants).
-        *   `core/` (errors, utils, api_client).
-        *   `data/` (datasources, models, repositories_impl).
-        *   `domain/` (entities, repositories_interfaces).
-        *   `presentation/` (providers, screens, widgets).
-
-4.  **Sistema de Diseño (Theming):**
-    *   Crear `lib/config/theme/app_theme.dart`.
-    *   Definir `ColorPalette`:
-        *   `primary`: Color(0xFF092648) (Azul Profundo).
-        *   `secondary`: Color(0xFF577219) (Verde Oliva).
-        *   `accent`: Color(0xFFD49E1E) (Dorado Ámbar).
-    *   Configurar `ThemeData` global con fuentes (Poppins/Inter) y estilos de Inputs (Bordes redondeados, transparencias).
-
-5.  **Capa de Red (Networking):**
-    *   Implementar `lib/core/api/dio_client.dart`.
-    *   Configurar `BaseOptions` con `baseUrl` desde variables de entorno (`.env`).
-    *   **Crucial:** Configurar Interceptores para logging (`PrettyDioLogger`) y manejo de errores genérico.
+*   [x] Inicialización del Proyecto y Estructura de Carpetas.
+*   [x] Gestión de Dependencias (`pubspec.yaml`).
+*   [x] Sistema de Diseño (Theming) y Paleta de Colores.
+*   [x] Capa de Red (Dio Client con Interceptores).
 
 ### Tarde: Autenticación y Gestión de Sesión
-
-**Objetivo:** Permitir que los usuarios inicien sesión y mantener la seguridad del token.
-
-1.  **Capa de Datos (Auth):**
-    *   Crear modelos: `LoginRequest`, `TokenResponse`, `User`.
-    *   Implementar `AuthDataSource` con método `login(username, password)` apuntando a `/api/v1/auth/login/access-token`.
-    *   **Nota:** Recordar enviar como `x-www-form-urlencoded`.
-
-2.  **Almacenamiento Seguro:**
-    *   Implementar servicio `StorageService` usando `flutter_secure_storage`.
-    *   Métodos: `saveToken`, `getToken`, `deleteToken`.
-
-3.  **Gestión de Estado (Auth):**
-    *   Crear `AuthProvider` (Riverpod `StateNotifier`).
-    *   Estados: `AuthStatus.checking`, `AuthStatus.authenticated`, `AuthStatus.unauthenticated`.
-    *   Lógica: Al iniciar la app, leer token del storage. Si existe, validar (o asumir válido temporalmente).
-
-4.  **UI de Autenticación:**
-    *   **Splash Screen:** Logo centrado, fondo gradiente, lógica de redirección basada en `AuthStatus`.
-    *   **Login Screen:**
-        *   Diseño "Glass": Contenedor con `BackdropFilter`, bordes blancos semitransparentes.
-        *   Validación de formulario.
-        *   Manejo de errores (Snackbar "Credenciales incorrectas").
+*   [x] Capa de Datos Auth (Modelos, DataSource, Repository).
+*   [x] Almacenamiento Seguro (Token JWT).
+*   [x] Gestión de Estado (AuthNotifier).
+*   [x] UI: Splash Screen y Login Screen (Diseño Glass).
 
 ---
 
-## DÍA 2: Catálogo, Navegación y Experiencia de Usuario
+## DÍA 2: Identidad, Roles y Catálogo Inteligente
 
-### Mañana: Navegación y Listado de Maquinaria
+### Mañana: Catálogo y Navegación Base (Completado)
+*   [x] Configuración de Router (`GoRouter`).
+*   [x] Capa de Datos Machines (Modelos, DataSource, Repository).
+*   [x] Home Screen (Catálogo con Grid y Búsqueda).
+*   [x] Widget `MachineCard` (Diseño Glass).
 
-**Objetivo:** Mostrar el inventario disponible de forma atractiva y eficiente.
+### Tarde: Gestión de Identidad y Diferenciación de Roles
 
-1.  **Configuración de Router:**
-    *   Configurar `GoRouter` en `lib/config/router/app_router.dart`.
-    *   Rutas: `/splash`, `/login`, `/home`, `/machine/:id`.
-    *   Redirección: Si no está autenticado y trata de ir a `/home`, mandar a `/login`.
+**Objetivo:** Establecer la infraestructura para múltiples actores y permitir el ingreso de nuevos clientes.
 
-2.  **Capa de Datos (Machines):**
-    *   Modelo `Machine` (Freezed) mapeando la respuesta de `/api/v1/machines/`.
-    *   `MachineRepository` con método `getMachines({status, serial})`.
+1.  **Registro de Usuarios (Sign Up):**
+    *   **Pantalla `RegisterScreen`:** Formulario con Email, Password, Nombre Completo.
+    *   **Conexión:** Endpoint `POST /api/v1/users/`.
+    *   **Lógica:** Login automático post-registro o redirección al Login.
 
-3.  **Home Screen (Catálogo):**
-    *   Implementar `SliverGrid` para rendimiento.
-    *   **Widget `MachineCard`:**
-        *   Imagen principal (usar `CachedNetworkImage`).
-        *   Precio por hora destacado en color Dorado.
-        *   Indicador de estado (Disponible/Rentado).
-        *   Efecto Glassmorphism en el footer de la tarjeta.
+2.  **Enrutamiento Basado en Roles (RBAC):**
+    *   **Actualizar Modelo `User`:** Asegurar que el campo `role` (`client`, `operator`, `admin`) se parsee correctamente.
+    *   **Lógica de Redirección (`AuthNotifier`):**
+        *   Si `role == client` -> Redirigir a `/home` (Catálogo).
+        *   Si `role == operator` -> Redirigir a `/operator/dashboard`.
+        *   Si `role == admin` -> Redirigir a `/admin/dashboard`.
+    *   **Router:** Definir las nuevas rutas `/operator/dashboard` y `/admin/dashboard` (inicialmente Scaffolds vacíos con título).
 
-4.  **Búsqueda y Filtros:**
-    *   Implementar `SearchBar` en el `SliverAppBar`.
-    *   Lógica de filtrado local o remota (según API).
-
-### Tarde: Detalle de Producto y Watchlist
-
-**Objetivo:** Convencer al usuario de rentar y permitirle guardar favoritos.
-
-1.  **Machine Detail Screen:**
-    *   Uso de `Hero` animation para la transición de la imagen desde el Home.
-    *   Sección de "Especificaciones": Renderizar el JSON de `specs` en una grilla limpia.
-    *   Mapa estático (o botón a mapa) mostrando ubicación (`lat`, `lng`).
-
-2.  **Watchlist (Favoritos):**
-    *   Endpoint: `POST /api/v1/watchlist/toggle`.
-    *   UI: Botón de "Corazón" flotante o en la barra superior.
-    *   Estado: Debe reflejar si el usuario ya sigue la máquina (requiere consultar `GET /watchlist` al cargar).
-
-3.  **Bottom Navigation Bar:**
-    *   Implementar `ShellRoute` en GoRouter para mantener la barra de navegación persistente.
-    *   Tabs: Home, Mis Ofertas, Reservas, Perfil.
+3.  **Refinamiento del Catálogo (Vista Cliente):**
+    *   **Provider Logic:** Modificar `MachinesNotifier.loadMachines()`.
+    *   **Condición:** Si el usuario es `client`, inyectar automáticamente el parámetro `status=available` en la petición al backend.
+    *   **Resultado:** El cliente solo ve lo que puede rentar.
 
 ---
 
-## DÍA 3: El Corazón del Negocio (Subastas y Disponibilidad)
+## DÍA 3: El Corazón del Negocio (Cliente) y Operaciones (Operador)
 
-### Mañana: Calendario y Motor de Ofertas
+### Mañana: Detalle, Reservas y Portal del Operador
 
-**Objetivo:** Permitir al usuario visualizar disponibilidad y realizar ofertas complejas.
+**Objetivo:** Permitir al cliente reservar y al operador gestionar su día a día.
 
-1.  **Disponibilidad (Calendar):**
-    *   Endpoint: `GET /api/v1/machines/{id}/availability`.
-    *   UI: Widget de Calendario (ej. `table_calendar` personalizado).
-    *   Lógica visual:
-        *   Días con slots disponibles: Punto verde.
-        *   Al seleccionar día: Mostrar lista de horas (Slots) abajo.
-        *   Slot Card: Muestra hora inicio/fin y **Precio Actual**.
+1.  **Detalle de Máquina (Cliente/Admin):**
+    *   Pantalla `MachineDetailScreen`.
+    *   **Cliente:** Ve botón "Reservar" / "Ofertar".
+    *   **Admin:** Ve botón "Editar" / "Historial".
+    *   **Specs:** Renderizado dinámico de especificaciones técnicas.
 
-2.  **Lógica de Ofertas (Bidding):**
-    *   **Bidding Sheet (Modal):**
-        *   Diseño sofisticado con fondo desenfocado.
-        *   Mostrar: "Oferta actual más alta" y "Tu oferta".
-    *   **Formulario:**
-        *   Input `Monto Oferta`.
-        *   Switch `Oferta Automática` -> Despliega Input `Monto Máximo`.
-    *   Endpoint: `POST /api/v1/offers/`.
-    *   Validación: El monto no puede ser menor al actual + incremento.
+2.  **Portal del Operador (Dashboard):**
+    *   **Endpoint:** `GET /api/v1/bookings/?status=confirmed,active`.
+    *   **UI:** Lista de tareas del día (Reservas confirmadas que requieren atención).
+    *   **Tarjeta de Tarea:** Muestra Máquina, Cliente, Hora y Tipo de Acción (Entregar/Recibir).
 
-### Tarde: Gestión de Ofertas y Tiempo Real
+3.  **Flujo de Check-in/Check-out (Operador):**
+    *   **Pantalla `OperationScreen`:**
+        *   **Paso 1:** Slider de Combustible (0-100%).
+        *   **Paso 2:** Evidencia Fotográfica (Integración `image_picker`).
+        *   **Paso 3:** Comentarios.
+    *   **Conexión:** Endpoints `POST .../check-in` y `.../check-out`.
 
-**Objetivo:** Mantener al usuario informado sobre el estado de sus pujas.
+### Tarde: Motor de Subastas y Mis Reservas (Cliente)
 
-1.  **Pantalla "Mis Ofertas":**
-    *   Endpoint: `GET /api/v1/offers/my-offers`.
-    *   Diseño de tarjeta de oferta:
-        *   Estado **WINNING**: Borde Dorado/Verde, texto "Vas ganando".
-        *   Estado **OUTBID**: Borde Rojo, botón "Contraofertar" (Lleva al Bidding Sheet).
+**Objetivo:** Implementar la lógica compleja de precios y seguimiento para el cliente.
 
-2.  **Notificaciones y Polling:**
-    *   Como no hay WebSockets aún, implementar `Timer` periódico (cada 30s) en el `OffersProvider` para refrescar la lista.
-    *   **Centro de Notificaciones:**
-        *   Endpoint: `GET /api/v1/notifications/`.
-        *   UI: Lista simple con iconos según tipo (`outbid`, `won`).
+1.  **Motor de Ofertas (Bidding):**
+    *   **Disponibilidad:** Calendario visual (`table_calendar`) consumiendo `GET .../availability`.
+    *   **Modal de Oferta:**
+        *   Input Monto Simple.
+        *   Switch "Auto-puja" (Proxy Bidding).
+    *   **Validación:** Feedback inmediato si la oferta es muy baja.
 
----
-
-## DÍA 4: Operaciones, Pagos y Entrega Final
-
-### Mañana: Gestión de Reservas y Operaciones de Campo
-
-**Objetivo:** Cerrar el ciclo de renta y manejar la evidencia física.
-
-1.  **Listado de Reservas:**
-    *   Endpoint: `GET /api/v1/bookings/`.
-    *   Filtros visuales: Activas (En curso), Pendientes (De pago), Historial.
-
-2.  **Check-in / Check-out (Evidencia):**
-    *   Integrar `image_picker`.
-    *   **UI de Wizard:**
-        *   Paso 1: Slider de Combustible (0% a 100%).
-        *   Paso 2: Grid de fotos (Botón "Tomar Foto").
-        *   Paso 3: Comentarios y Enviar.
-    *   Endpoints:
-        *   `POST .../check-in` (Al inicio).
-        *   `POST .../check-out` (Al final).
-
-### Tarde: Pagos, Pulido Visual y Testing
-
-**Objetivo:** Monetización y calidad final.
-
-1.  **Integración de Pagos (Stripe):**
-    *   Configurar `flutter_stripe`.
-    *   Flujo:
-        1.  Botón "Pagar Ahora" en reserva pendiente.
-        2.  Llamar backend: `POST /payments/create-intent`.
-        3.  Recibir `client_secret`.
-        4.  `Stripe.instance.initPaymentSheet(...)`.
-        5.  `Stripe.instance.presentPaymentSheet()`.
-        6.  Al éxito, llamar backend: `POST /payments/confirm`.
-
-2.  **Pulido Visual (The "Apple" Touch):**
-    *   Revisar todas las sombras y bordes.
-    *   Asegurar que los efectos de "Glassmorphism" no afecten la legibilidad.
-    *   Añadir transiciones de página (`CupertinoPageTransition` o `FadeThrough`).
-    *   Icono de la App y Splash nativo (`flutter_native_splash`).
-
-3.  **Testing Manual y Build:**
-    *   Recorrido completo: Login -> Buscar -> Ofertar -> Ganar -> Pagar -> Check-in -> Check-out.
-    *   Generar APK/IPA (o web build) para entrega.
+2.  **Mis Reservas y Ofertas:**
+    *   **Pantalla Unificada:** Tabs "Mis Ofertas" (En curso) y "Mis Reservas" (Ganadas).
+    *   **Estados Visuales:**
+        *   Winning (Verde/Dorado).
+        *   Outbid (Rojo + Botón "Contraofertar").
+        *   Confirmed (Azul + Instrucciones).
 
 ---
 
-**Entregable Final:** Código fuente completo en repositorio, APK de prueba y documentación de despliegue.
+## DÍA 4: Administración, Pagos y Cierre
+
+### Mañana: Portal del Administrador y Pagos
+
+**Objetivo:** Dar control total al admin y monetizar la plataforma.
+
+1.  **Portal Admin (Dashboard):**
+    *   **Métricas:** Tarjetas con Ingresos Totales y Ocupación (`GET /metrics/...`).
+    *   **Gestión Global:** Lista maestra de todas las reservas con opción de cancelación forzada (`call-off`).
+
+2.  **Integración de Pagos (Stripe):**
+    *   **Flujo Cliente:**
+        *   Botón "Pagar" en reservas con estado `pending_payment`.
+        *   Integración `flutter_stripe` para procesar tarjeta.
+        *   Confirmación al backend.
+
+### Tarde: Pulido Final, Testing Multi-Rol y Entrega
+
+**Objetivo:** Asegurar que los tres mundos convivan sin errores.
+
+1.  **Testing de Flujos Cruzados:**
+    *   **Escenario 1:** Cliente se registra -> Oferta -> Gana.
+    *   **Escenario 2:** Admin ve la reserva -> Operador hace Check-in -> Cliente usa -> Operador hace Check-out.
+    *   **Validación:** Verificar que cada usuario solo vea lo que le corresponde.
+
+2.  **Pulido Visual (Liquid Glass):**
+    *   Revisión de contrastes y legibilidad en todos los portales.
+    *   Animaciones de transición entre estados.
+
+3.  **Build y Entrega:**
+    *   Generación de APK/Web Build.
+    *   Documentación final actualizada con la arquitectura de roles.
+
+---
+
+**Entregable Final:** Una aplicación unificada que se comporta como tres herramientas distintas según quién la use, cubriendo todo el ciclo de vida del negocio de alquiler.

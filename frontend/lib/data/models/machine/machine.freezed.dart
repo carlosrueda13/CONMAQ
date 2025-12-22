@@ -22,13 +22,13 @@ Machine _$MachineFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$Machine {
   int get id => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  String get description => throw _privateConstructorUsedError;
+  String? get name => throw _privateConstructorUsedError;
+  String? get description => throw _privateConstructorUsedError;
   @JsonKey(name: 'serial_number')
-  String get serialNumber => throw _privateConstructorUsedError;
+  String? get serialNumber => throw _privateConstructorUsedError;
   @JsonKey(name: 'price_base_per_hour')
-  double get priceBasePerHour => throw _privateConstructorUsedError;
-  String get status => throw _privateConstructorUsedError;
+  double? get priceBasePerHour => throw _privateConstructorUsedError;
+  String? get status => throw _privateConstructorUsedError;
   @JsonKey(name: 'image_url')
   String? get imageUrl => throw _privateConstructorUsedError;
   List<String>? get photos => throw _privateConstructorUsedError;
@@ -50,11 +50,11 @@ abstract class $MachineCopyWith<$Res> {
   @useResult
   $Res call({
     int id,
-    String name,
-    String description,
-    @JsonKey(name: 'serial_number') String serialNumber,
-    @JsonKey(name: 'price_base_per_hour') double priceBasePerHour,
-    String status,
+    String? name,
+    String? description,
+    @JsonKey(name: 'serial_number') String? serialNumber,
+    @JsonKey(name: 'price_base_per_hour') double? priceBasePerHour,
+    String? status,
     @JsonKey(name: 'image_url') String? imageUrl,
     List<String>? photos,
     Map<String, dynamic>? specs,
@@ -77,11 +77,11 @@ class _$MachineCopyWithImpl<$Res, $Val extends Machine>
   @override
   $Res call({
     Object? id = null,
-    Object? name = null,
-    Object? description = null,
-    Object? serialNumber = null,
-    Object? priceBasePerHour = null,
-    Object? status = null,
+    Object? name = freezed,
+    Object? description = freezed,
+    Object? serialNumber = freezed,
+    Object? priceBasePerHour = freezed,
+    Object? status = freezed,
     Object? imageUrl = freezed,
     Object? photos = freezed,
     Object? specs = freezed,
@@ -92,26 +92,26 @@ class _$MachineCopyWithImpl<$Res, $Val extends Machine>
                 ? _value.id
                 : id // ignore: cast_nullable_to_non_nullable
                       as int,
-            name: null == name
+            name: freezed == name
                 ? _value.name
                 : name // ignore: cast_nullable_to_non_nullable
-                      as String,
-            description: null == description
+                      as String?,
+            description: freezed == description
                 ? _value.description
                 : description // ignore: cast_nullable_to_non_nullable
-                      as String,
-            serialNumber: null == serialNumber
+                      as String?,
+            serialNumber: freezed == serialNumber
                 ? _value.serialNumber
                 : serialNumber // ignore: cast_nullable_to_non_nullable
-                      as String,
-            priceBasePerHour: null == priceBasePerHour
+                      as String?,
+            priceBasePerHour: freezed == priceBasePerHour
                 ? _value.priceBasePerHour
                 : priceBasePerHour // ignore: cast_nullable_to_non_nullable
-                      as double,
-            status: null == status
+                      as double?,
+            status: freezed == status
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
-                      as String,
+                      as String?,
             imageUrl: freezed == imageUrl
                 ? _value.imageUrl
                 : imageUrl // ignore: cast_nullable_to_non_nullable
@@ -140,11 +140,11 @@ abstract class _$$MachineImplCopyWith<$Res> implements $MachineCopyWith<$Res> {
   @useResult
   $Res call({
     int id,
-    String name,
-    String description,
-    @JsonKey(name: 'serial_number') String serialNumber,
-    @JsonKey(name: 'price_base_per_hour') double priceBasePerHour,
-    String status,
+    String? name,
+    String? description,
+    @JsonKey(name: 'serial_number') String? serialNumber,
+    @JsonKey(name: 'price_base_per_hour') double? priceBasePerHour,
+    String? status,
     @JsonKey(name: 'image_url') String? imageUrl,
     List<String>? photos,
     Map<String, dynamic>? specs,
@@ -166,11 +166,11 @@ class __$$MachineImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? id = null,
-    Object? name = null,
-    Object? description = null,
-    Object? serialNumber = null,
-    Object? priceBasePerHour = null,
-    Object? status = null,
+    Object? name = freezed,
+    Object? description = freezed,
+    Object? serialNumber = freezed,
+    Object? priceBasePerHour = freezed,
+    Object? status = freezed,
     Object? imageUrl = freezed,
     Object? photos = freezed,
     Object? specs = freezed,
@@ -181,26 +181,26 @@ class __$$MachineImplCopyWithImpl<$Res>
             ? _value.id
             : id // ignore: cast_nullable_to_non_nullable
                   as int,
-        name: null == name
+        name: freezed == name
             ? _value.name
             : name // ignore: cast_nullable_to_non_nullable
-                  as String,
-        description: null == description
+                  as String?,
+        description: freezed == description
             ? _value.description
             : description // ignore: cast_nullable_to_non_nullable
-                  as String,
-        serialNumber: null == serialNumber
+                  as String?,
+        serialNumber: freezed == serialNumber
             ? _value.serialNumber
             : serialNumber // ignore: cast_nullable_to_non_nullable
-                  as String,
-        priceBasePerHour: null == priceBasePerHour
+                  as String?,
+        priceBasePerHour: freezed == priceBasePerHour
             ? _value.priceBasePerHour
             : priceBasePerHour // ignore: cast_nullable_to_non_nullable
-                  as double,
-        status: null == status
+                  as double?,
+        status: freezed == status
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
-                  as String,
+                  as String?,
         imageUrl: freezed == imageUrl
             ? _value.imageUrl
             : imageUrl // ignore: cast_nullable_to_non_nullable
@@ -223,11 +223,11 @@ class __$$MachineImplCopyWithImpl<$Res>
 class _$MachineImpl implements _Machine {
   const _$MachineImpl({
     required this.id,
-    required this.name,
-    required this.description,
-    @JsonKey(name: 'serial_number') required this.serialNumber,
-    @JsonKey(name: 'price_base_per_hour') required this.priceBasePerHour,
-    required this.status,
+    this.name,
+    this.description,
+    @JsonKey(name: 'serial_number') this.serialNumber,
+    @JsonKey(name: 'price_base_per_hour') this.priceBasePerHour,
+    this.status,
     @JsonKey(name: 'image_url') this.imageUrl,
     final List<String>? photos,
     final Map<String, dynamic>? specs,
@@ -240,17 +240,17 @@ class _$MachineImpl implements _Machine {
   @override
   final int id;
   @override
-  final String name;
+  final String? name;
   @override
-  final String description;
+  final String? description;
   @override
   @JsonKey(name: 'serial_number')
-  final String serialNumber;
+  final String? serialNumber;
   @override
   @JsonKey(name: 'price_base_per_hour')
-  final double priceBasePerHour;
+  final double? priceBasePerHour;
   @override
-  final String status;
+  final String? status;
   @override
   @JsonKey(name: 'image_url')
   final String? imageUrl;
@@ -331,12 +331,11 @@ class _$MachineImpl implements _Machine {
 abstract class _Machine implements Machine {
   const factory _Machine({
     required final int id,
-    required final String name,
-    required final String description,
-    @JsonKey(name: 'serial_number') required final String serialNumber,
-    @JsonKey(name: 'price_base_per_hour')
-    required final double priceBasePerHour,
-    required final String status,
+    final String? name,
+    final String? description,
+    @JsonKey(name: 'serial_number') final String? serialNumber,
+    @JsonKey(name: 'price_base_per_hour') final double? priceBasePerHour,
+    final String? status,
     @JsonKey(name: 'image_url') final String? imageUrl,
     final List<String>? photos,
     final Map<String, dynamic>? specs,
@@ -347,17 +346,17 @@ abstract class _Machine implements Machine {
   @override
   int get id;
   @override
-  String get name;
+  String? get name;
   @override
-  String get description;
+  String? get description;
   @override
   @JsonKey(name: 'serial_number')
-  String get serialNumber;
+  String? get serialNumber;
   @override
   @JsonKey(name: 'price_base_per_hour')
-  double get priceBasePerHour;
+  double? get priceBasePerHour;
   @override
-  String get status;
+  String? get status;
   @override
   @JsonKey(name: 'image_url')
   String? get imageUrl;

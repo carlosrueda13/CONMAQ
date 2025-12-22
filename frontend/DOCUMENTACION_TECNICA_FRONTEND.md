@@ -165,14 +165,17 @@ frontend/
 Este módulo gestiona la identidad del usuario y la seguridad de la sesión. Fue implementado siguiendo estrictamente Clean Architecture.
 
 ### 7.1. Flujo de Datos
-1.  **UI (`LoginScreen`):** Captura email y password. Invoca `ref.read(authProvider.notifier).login()`.
-2.  **Provider (`AuthNotifier`):** Cambia estado a `checking`. Llama a `AuthRepository.login()`.
+1.  **UI (`LoginScreen` / `RegisterScreen`):**
+    - **Login:** Captura email y password. Invoca `ref.read(authProvider.notifier).login()`.
+    - **Registro:** Captura nombre, email, teléfono, rol y password. Invoca `ref.read(authProvider.notifier).register()`.
+2.  **Provider (`AuthNotifier`):**
+    - **Login:** Cambia estado a `checking`. Llama a `AuthRepository.login()`.
+    - **Registro:** Llama a `AuthRepository.register()`. Si es exitoso, invoca automáticamente a `login()` para una experiencia fluida.
 3.  **Repository (`AuthRepositoryImpl`):**
-    - Llama a `AuthDataSource.login()` para obtener el token.
-    - Guarda el token usando `StorageService`.
-    - Llama a `AuthDataSource.getUserMe()` para obtener datos del usuario.
-    - Retorna una entidad `User` o lanza una excepción.
-4.  **DataSource (`AuthDataSource`):** Realiza peticiones HTTP (`POST /login/access-token`, `GET /users/me`) usando `Dio`.
+    - **Login:** Llama a `AuthDataSource.login()` para obtener el token y lo guarda.
+    - **Registro:** Llama a `AuthDataSource.register()` enviando el payload completo.
+    - **User Info:** Llama a `AuthDataSource.getUserMe()` para obtener datos del usuario y su rol.
+4.  **DataSource (`AuthDataSource`):** Realiza peticiones HTTP (`POST /login/access-token`, `POST /users/`, `GET /users/me`) usando `Dio`.
 
 ### 7.2. Seguridad (Token JWT e Interceptores)
 La seguridad se maneja en dos frentes: persistencia segura e inyección automática de credenciales.
@@ -252,13 +255,29 @@ Este módulo implementa la visualización, búsqueda y navegación del inventari
   - Diseño de tarjeta con bordes redondeados y sombra suave.
   - Indicador de estado (Disponible/Ocupado) con código de colores.
 
-### 8.3. Navegación (`AppRouter`)
+### 8.3. Navegación y RBAC (`AppRouter`)
 Ubicación: `lib/config/router/app_router.dart`
 
-Se utiliza `GoRouter` para la gestión de rutas declarativas.
-- **`/home`**: Ruta principal que carga `HomeScreen`.
-- **`/machine/:id`**: Ruta dinámica para el detalle de la máquina (paramétrico).
-- **Redirección:** Integrada con `AuthNotifier` para proteger rutas privadas.
+Se utiliza `GoRouter` para la gestión de rutas declarativas y el control de acceso basado en roles (RBAC).
+
+#### A. Mapa de Rutas
+- **`/login`**: Pantalla de inicio de sesión.
+- **`/register`**: Pantalla de registro de nuevos usuarios.
+- **`/home`**: Catálogo de maquinaria (Portal del Cliente).
+- **`/operator-dashboard`**: Panel de gestión para Operadores.
+- **`/admin-dashboard`**: Panel de administración global.
+- **`/machine/:id`**: Detalle de máquina (paramétrico).
+
+#### B. Lógica de Redirección (RBAC)
+La aplicación implementa una lógica de enrutamiento inteligente basada en el rol del usuario autenticado (`user.role`). Esta lógica se ejecuta en los listeners de `LoginScreen` y `RegisterScreen` tras una autenticación exitosa:
+
+| Rol Detectado | Ruta de Destino | Descripción |
+| :--- | :--- | :--- |
+| `client` | `/home` | Acceso al catálogo para realizar reservas. |
+| `operator` | `/operator-dashboard` | Acceso a tareas de mantenimiento y logística. |
+| `admin` | `/admin-dashboard` | Acceso total a métricas y gestión de usuarios. |
+
+Además, todas las pantallas protegidas escuchan cambios en el estado de autenticación; si el usuario hace logout (`AuthStatus.unauthenticated`), es redirigido forzosamente a `/login`.
 
 ---
 

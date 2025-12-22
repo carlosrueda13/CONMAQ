@@ -32,4 +32,28 @@ class AuthDataSource {
       rethrow;
     }
   }
+
+  Future<User> register(
+    String email,
+    String password,
+    String fullName,
+    String phone,
+    String role,
+  ) async {
+    try {
+      final response = await _dioClient.post(
+        '/users/',
+        data: {
+          'email': email,
+          'password': password,
+          'full_name': fullName,
+          'phone': phone,
+          'role': role,
+        },
+      );
+      return User.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

@@ -49,7 +49,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
       if (next.status == AuthStatus.authenticated) {
-        context.go('/home');
+        final user = next.user;
+        if (user?.role == 'operator') {
+          context.go('/operator-dashboard');
+        } else if (user?.role == 'admin') {
+          context.go('/admin-dashboard');
+        } else {
+          context.go('/home');
+        }
       }
     });
 
@@ -276,6 +283,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ],
                           ),
                         ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Register Link
+                  TextButton(
+                    onPressed: () => context.go('/register'),
+                    child: RichText(
+                      text: const TextSpan(
+                        text: '¿No tienes cuenta? ',
+                        style: TextStyle(color: Colors.white70),
+                        children: [
+                          TextSpan(
+                            text: 'Regístrate',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

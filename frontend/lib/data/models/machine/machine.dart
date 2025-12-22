@@ -8,11 +8,11 @@ part 'machine.g.dart';
 class Machine with _$Machine {
   const factory Machine({
     required int id,
-    required String name,
-    required String description,
-    @JsonKey(name: 'serial_number') required String serialNumber,
-    @JsonKey(name: 'price_base_per_hour') required double priceBasePerHour,
-    required String status,
+    String? name,
+    String? description,
+    @JsonKey(name: 'serial_number') String? serialNumber,
+    @JsonKey(name: 'price_base_per_hour') double? priceBasePerHour,
+    String? status,
     @JsonKey(name: 'image_url') String? imageUrl,
     List<String>? photos,
     Map<String, dynamic>? specs,

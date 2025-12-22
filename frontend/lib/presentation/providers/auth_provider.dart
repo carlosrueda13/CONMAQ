@@ -61,6 +61,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> register(
+    String email,
+    String password,
+    String fullName,
+    String phone,
+    String role,
+  ) async {
+    state = state.copyWith(status: AuthStatus.checking, errorMessage: null);
+    try {
+      await _authRepository.register(email, password, fullName, phone, role);
+      // Auto-login after successful registration
+      await login(email, password);
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: 'Error al registrar usuario: ${e.toString()}',
+      );
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     await _authRepository.logout();
     state = state.copyWith(status: AuthStatus.unauthenticated, user: null);

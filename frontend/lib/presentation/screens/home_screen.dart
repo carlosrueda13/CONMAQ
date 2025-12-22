@@ -31,6 +31,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final machinesState = ref.watch(machinesProvider);
 
+    ref.listen(authProvider, (previous, next) {
+      if (next.status == AuthStatus.unauthenticated) {
+        context.go('/login');
+      }
+    });
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [

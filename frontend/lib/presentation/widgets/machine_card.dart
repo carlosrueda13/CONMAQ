@@ -66,7 +66,7 @@ class MachineCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            machine.name,
+                            machine.name ?? 'Máquina',
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.bold,
@@ -80,13 +80,13 @@ class MachineCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '\$${machine.priceBasePerHour}/hr',
+                                '\$${machine.priceBasePerHour ?? 0.0}/hr',
                                 style: const TextStyle(
                                   color: AppTheme.accentColor,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              _StatusBadge(status: machine.status),
+                              _StatusBadge(status: machine.status ?? 'unknown'),
                             ],
                           ),
                         ],

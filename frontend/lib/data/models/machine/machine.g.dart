@@ -9,11 +9,11 @@ part of 'machine.dart';
 _$MachineImpl _$$MachineImplFromJson(Map<String, dynamic> json) =>
     _$MachineImpl(
       id: (json['id'] as num).toInt(),
-      name: json['name'] as String,
-      description: json['description'] as String,
-      serialNumber: json['serial_number'] as String,
-      priceBasePerHour: (json['price_base_per_hour'] as num).toDouble(),
-      status: json['status'] as String,
+      name: json['name'] as String?,
+      description: json['description'] as String?,
+      serialNumber: json['serial_number'] as String?,
+      priceBasePerHour: (json['price_base_per_hour'] as num?)?.toDouble(),
+      status: json['status'] as String?,
       imageUrl: json['image_url'] as String?,
       photos: (json['photos'] as List<dynamic>?)
           ?.map((e) => e as String)
